@@ -303,7 +303,7 @@ def spl_batch(df):
         
 def plot_spl(df):
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
-    sns.scatterplot(data=df, x='hour', y='spl', hue='site')   
+    sns.scatterplot(data=df, x='hour', y='spl', hue='day')   
     fig.set_tight_layout('tight')
     plt.show()    
             
