@@ -316,14 +316,14 @@ def ac_print(df):
     X=np.zeros([Ls,65*48])
     sites_ind=list()
     for site, data in group_site:        
-        print('site: ' + site+ ' # '+str(k+1) +' of ' + str(Ls) + ' sites') 
+        print('site: ' + str(site)+ ' # '+str(k+1) +' of ' + str(Ls) + ' sites') 
         group_hour=data.groupby(['hour'])
         Lh=len(group_hour)
         i=0 
         Stt=np.zeros([513,Lh])
         tn=np.zeros([Lh])
         for hour, rows in group_hour:
-            tn[i]=hour
+            tn[i]=sum(hour)
             L=len(rows)
             St=np.zeros(513)   
             j=0
@@ -346,6 +346,7 @@ def ac_print(df):
         mask=Stt_db>0     
         Sm = Stt_db * mask
         Sd = downscale_local_mean(Sm, (8, 1))
+        plt.figure()
         plt.ylabel('Hour')
         plt.xlabel('Frequency (kHz)')
         plt.title(site)
@@ -367,14 +368,10 @@ def ac_print(df):
     # Get the embeddings
     pts = mds.fit_transform(dist_matrix)
     # Plot the embedding, colored according to the class of the points
-    fig = plt.figure(2, (15,6))
-    ax = fig.add_subplot(1,2,1)    
-    ax = sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=y, palette=['r', 'g', 'b', 'c'])
-    plt.title('Metric MDS with Euclidean')   
-    plt.ylabel('NMDSy')
-    plt.xlabel('NMDSx')
+    plt.figure();
+    fig2 = plt.figure(1, (15,6))
     # Add the second plot
-    ax = fig.add_subplot(1,2,2)
+    ax2 = fig2.add_subplot()
     # Plot the points again
     plt.scatter(pts[:, 0], pts[:, 1])
     
@@ -385,11 +382,18 @@ def ac_print(df):
         i = pts[ind, 0]
         j = pts[ind, 1]
         ab = AnnotationBbox(imagebox, (i, j), frameon=False)
-        ax.add_artist(ab)
+        ax2.add_artist(ab)
     plt.title('Metric MDS with Euclidean')   
     plt.ylabel('NMDSy')
     plt.xlabel('NMDSx')
-    plt.show(block=False)        
+    plt.show(block=False)    
+    
+    plt.figure(1, (15,6))   
+    sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=sites_ind, palette='pastel')
+    plt.title('Metric MDS with Euclidean')   
+    plt.ylabel('NMDSy')
+    plt.xlabel('NMDSx') 
+    plt.show(block=False)
     return(X,y,pts)
 
 

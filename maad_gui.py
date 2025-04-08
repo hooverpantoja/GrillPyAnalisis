@@ -156,7 +156,6 @@ def calculate_acoustic_print():
     X,y,nmds=analyzis.ac_print(df.md)  
     data.csv_summary['nmds']=nmds.tolist()
     data.csv_summary['ac_print']=X.tolist()
-    data.csv_summary['ac_ind']=y.tolist()
     print('Acoustic print calculated succesfully')
 
 ###########################################

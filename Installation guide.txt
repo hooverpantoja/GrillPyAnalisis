@@ -2,7 +2,7 @@
 2. Open miniconda console:
 3. From console install the following packages:
 	conda env create -f environment.yml
-4. Select the folder that contains these files as working directory:
+4. Select the folder that contains the repository as working directory:
 Example:>>> cd C:\Users\User1\Desktop\MAAD_GUI (copy and paste the directory in the console)
 5. Run maad_gui.py file
 	>>> python maad_gui.py
