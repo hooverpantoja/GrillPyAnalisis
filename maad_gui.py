@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-<
 """
 Created on Fri Apr 14 10:56:10 2023
 
@@ -43,7 +43,7 @@ def read_file():
         print('Verify file and recorder type')
     else: 
         print('File loaded succesfully: ')
-        print(flist) 
+        print(flist)
     
 ### One recorder - One Folder #######################    
 def get_data_files():
@@ -177,15 +177,15 @@ def save_csv():
         print('No metadata loaded') 
     else:
         filename= p.save + '/' + 'meta_data'
-        df.md.to_csv(filename, index=False)
+        df.md.to_csv(filename, Esep='\t', header=True, index=False, encoding='utf-8')
         print('File created:')
         print(filename)   
         
     if data.csv_data.empty:
-        print('No metadata loaded') 
+        print('No raw data loaded') 
     else:
         filename= p.save + '/' + 'raw_data'
-        data.md.to_csv(filename, index=False)
+        data.md.to_csv(filename, Esep='\t', header=True, index=False, encoding='utf-8')
         print('File created:')
         print(filename)   
         
@@ -193,7 +193,7 @@ def save_csv():
         print('No summary of set of recorders loaded') 
     else:
         filename= p.save + '/' + 'summary' 
-        data.csv_summary.to_csv(filename, index=False)
+        data.csv_summary.to_csv(filename, Esep='\t', header=True, index=False, encoding='utf-8')
         #data.csv_summary.to_excel('summary.xlsx')
         print('File created:')
         print(filename)         

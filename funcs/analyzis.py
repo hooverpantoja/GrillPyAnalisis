@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-<
 """
 Created on Wed Apr 26 12:50:30 2023
 
@@ -111,8 +111,8 @@ def ind_per_day(df):
     Ls=len(group_site)
     k=0
     ind_sites=list()
-    for site, data in group_site:        
-        print('site: ' + site+ ' # '+str(k+1) +' of ' + str(Ls) + ' sites') 
+    for site, data in group_site:      
+        print('site: ' + str(site)+ ' # '+str(k+1) +' of ' + str(Ls) + ' sites') 
         group_day=data.groupby(['day'])
         Ld=len(group_day)
         i=0 
@@ -130,15 +130,12 @@ def ind_per_day(df):
                 j=j+1
                 print(j)
             #Calculate indices
-            S,fn = sound.spectrum(s_long, fs, window='hann', nperseg=1024, noverlap=512)        
-       
-            
+            S,fn = sound.spectrum(s_long, fs, window='hann', nperseg=1024, noverlap=512)             
             i=i+1
             print('progress: ' + str(i) +' of ' + str(Ld)) 
         ind_sites.append(site) 
         k=k+1         
         print('progress: ' + str(k) +' of ' + str(Ls)) 
-    
     
     df.reset_index()
     L=str(len(df.route))
@@ -156,7 +153,6 @@ def ind_per_day(df):
             df.loc[df.index[i],'H']=temp.H
             df.loc[df.index[i],'SC']=temp.SC
             df.loc[df.index[i],'NP']=temp.NP
-
             print('progress: ' + str(i+1) +' of ' + L) 
     print('indices calculated')
     return(df)
@@ -210,11 +206,11 @@ def compute_acoustic_indices(path_audio):
         # Compute acoustic indices
         ADI = features.acoustic_diversity_index(Sxx, fn, fmin=2000, fmax=24000, bin_step=1000, index='shannon', dB_threshold=-70)
         _, _, ACI = features.acoustic_complexity_index(Sxx)
-        NDSI, xBA, xA, xB = features.soundscape_index(Sxx_power, fn, flim_bioPh=(2000, 20000), flim_antroPh=(0, 2000))
+        NDSI, xBA, xA, xB = features.soundscape_index(Sxx_power, fn, flim_bioPh=(2000, 20000), flim_antroPh=(100, 2000))
         Ht = features.temporal_entropy(s)
         Hf, _ = features.frequency_entropy(Sxx_power)
         H = Hf * Ht
-        BI = features.bioacoustics_index(Sxx, fn, flim=(2000, 11000))
+        BI = features.bioacoustics_index(Sxx, fn, flim=(2000, 24000))
         NP = features.number_of_peaks(Sxx_power, fn, mode='linear', min_peak_val=0, 
                                       min_freq_dist=100, slopes=None, prominence=1e-6)
         #_, SC, _ = features.spectral_cover(Sxx_dB, fn, dB_threshold=-50, flim_MF=(4000,20000))
