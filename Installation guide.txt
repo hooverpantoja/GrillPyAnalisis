@@ -1,25 +1,16 @@
-1. Install miniconda: https://docs.conda.io/en/latest/miniconda.html
-2. Open miniconda console:
-3. From console install the following packages:
-	Dependencies
-		>>> conda install pip
-		>>> pip install glob2	
-		>>> pip install numpy
-		>>> pip install tk
-		>>> pip install pandas
-		>>> pip install glob2
-		>>> pip install matplotlib
-		>>> pip install seaborn
-		>>> pip install scikit-maad
-		>>> pip install scikit-learn
-4. Select the folder that contains the repository as working directory:
-Example:>>> cd C:\Users\User1\Desktop\MAAD_GUI (copy and paste the directory in the console)
-5. Run maad_gui.py file
+1. Instalar miniconda: https://docs.conda.io/en/latest/miniconda.html
+2. Abrir la conosola de miniconda miniconda: windows -> anaconda
+3. Ubicarse en el folder del repositorio (copiar y pegar la direcciòn exacta en el que se guardò del repositorio) 
+	Ejemplo:
+	>>> cd C:\Users\User1\Desktop\MAAD_GUI 
+
+4. Desde la consola instalar las dependencias corriendo la liena:
+	>>> conda env create -f environment.yml
+	en caso de que el ambiente ya estè instalado y se desee actualizar correr la linea:
+	>>> conda env update -f environment.yml --prune
+
+4. Activar el ambiente
+	>>>conda activate maad_gui
+
+5. Ejecutar el programa en python
 	>>> python maad_gui.py
-
-
-conda env create -f environment.yml
-
-
-
-

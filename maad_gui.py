@@ -26,6 +26,9 @@ data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame())
 flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
+analyze=analyzis.Analyzer()
+loader=load_data.Loader()
+
 ###########################################
 ### Load data #############################
 ###########################################
@@ -37,12 +40,12 @@ def read_file():
     p.load=os.path.dirname(flist)
     os.path.dirname(flist)
     rec_format=cbox.get()
-    df.md=load_data.create_df(p.load,flist,rec_format,flag.load)
+    df.md=loader.create_df(p.load,flist,rec_format,flag.load)
     data.wav,data.wavfs= sound.load(flist)  
-    if df.md.empty:
-        print('Verify file and recorder type')
+    if df.md.empty:     
+        print('Verifique el archivo y el tipo de grabadora')
     else: 
-        print('File loaded succesfully: ')
+        print('Archivo cargado exitosamente:')
         print(flist)
     
 ### One recorder - One Folder #######################    
@@ -52,41 +55,41 @@ def get_data_files():
     flist=glob.glob(p.load +'/*.wav') #Reads *.wav files in the selected directory
     flist.sort()
     rec_format=cbox.get()
-    df.md=load_data.create_df(p.load,flist,rec_format,flag.load)
+    df.md=loader.create_df(p.load,flist,rec_format,flag.load)
     if df.md.empty:
-        print('Verify folder and recorder type')
+        print('Verifique la carpeta y el tipo de grabadora')
     else: 
-        print('Folder loaded and dataframe created')
+        print('Carpeta cargada y DataFrame creado')
         _ ,fs = sound.load(flist[0]) 
         df.fs=fs
-        load_data.plot_folder_stats(df.md)
+        loader.plot_folder_stats(df.md)
         
 ### Set of recorders - Folder containing folders #######################   
 def prep_recs():
-    flag.load='set'
+    flag.load='set' 
     p.load=askdirectory()
     flist=glob.glob(p.load +'/*/*.wav') #Reads *.wav files in the selected directory
     #flist.sort()
     rec_format=cbox.get()
-    df.md=load_data.create_df(p.load,flist,rec_format,flag.load) 
+    df.md=loader.create_df(p.load,flist,rec_format,flag.load) 
     if df.md.empty:
-        print('Verify folder and recorder type')
+        print('Verifique la carpeta y el tipo de grabadora')
     else: 
-        data.csv_summary=load_data.plot_set_recorders(df.md)
-        print('Folder loaded and dataframe created') 
+        data.csv_summary=loader.plot_set_recorders(df.md)
+        print('Carpeta cargada y DataFrame creado') 
         print(data.csv_summary)
         
 def sel_days():
     df.days, indices = np.unique(df.md.day, return_inverse=True)  
-    print('Days to analyze: ')
+    print('Días a analizar:')
     print(df.days)
-    print('Write the days you want to analyze in the next line separated by ":" ex:20230504:20230507 and press enter:')
+    print('Escriba los días que desea analizar en la siguiente línea separados por ":" ej: 20230504:20230507 y presione Enter:')
     w.txt=input()
-    df_new=load_data.update_df(df.md, w.txt)
+    df_new=loader.update_df(df.md, w.txt)
     if df_new.empty:        
         print('Error')
     else:
-        print('Days selected and dataframe updated')
+        print('Días seleccionados y DataFrame actualizado')
         df.md=[]; df.md=df_new
                 
 ###########################################
@@ -101,15 +104,15 @@ def rois_gui():
             w.flims, _ , w.db, w.bstd , w.bper = obj.get_info_widgets(ch_rec,fmine,
                                                                fmaxe,'_',data.wavfs,db,bstd,bp)
             #analyzis.rois_spec(data,w.flims,ch_rec,w.db)
-            print('rois init')
+            print('Inicio de cálculo de regiones (ROIs)')
             rois, im_rois=analyzis.rois_spec(data,w.flims,ch_rec,w.db,w.bstd,w.bper) 
             
         else:
-            print('Load audio')
+            print('Cargue el audio primero')
     elif flag.load=='set' and ch==1:
         print('aqui voy') 
     else:
-        print('Load one file, one folder recorder, or a set of recorders. Also this analysis requires custom variables')
+        print('Cargue un archivo, una carpeta de una grabadora o un conjunto de grabadoras. Este análisis requiere variables personalizadas.')
 
 
 ### For one Recorder ####################################                        
@@ -122,7 +125,7 @@ def one_day_spec():
     elif flag.load=='folder':
         w.flims,w.samp_len,w.db, _ , _,ch =obj.get_info_widgets(ch_rec,fmine,fmaxe,tlene,df.fs,db,'_','_')
         
-        data.wav,data.wavfs,S.Sxx,S.tn,S.fn=analyzis.longwave(df.md,p.load,w.samp_len,w.flims,w.db,ch)
+        data.wav,data.wavfs,S.Sxx,S.tn,S.fn=analyzer.longwave(df.md,p.load,w.samp_len,w.flims,w.db,ch)
         print('Plot finished')
         
     elif flag.load=='set':
@@ -130,7 +133,7 @@ def one_day_spec():
     
 ### For one recorder or set of recorders #############       
 """def calculate_ind():         
-    print('Calculating indices')       
+    print('Calculando índices acústicos')      
     df_ind=analyzis.ind_batch(df.md)
     analyzis.plot_acoustic_indices(df_ind)  
     df.md=[]; df.md=df_ind
@@ -139,63 +142,69 @@ def one_day_spec():
     
 def calculate_ind():         
     print('Calculating indices')       
-    X=analyzis.ind_per_day(df.md)
+    X=analyzer.ind_per_day(df.md)
     print(str(X))
         
 def calculate_spl():     
-    print('Calculating SPL')
-    df_spl, df_sum=analyzis.spl_batch(df.md)    
-    analyzis.plot_spl(df_spl) 
+    print('Calculando SPL')
+    df_spl, df_sum=analyzer.spl_batch(df.md)    
+    analyzer.plot_spl(df_spl) 
     df.md=[]; df.md=df_spl
     data.csv_data=df_spl 
     data.csv_summary=df_sum
-    print('SPL indices calculated')
+    print('Índices SPL calculados')
     
     
 def calculate_acoustic_print():    
     X,y,nmds=analyzis.ac_print(df.md)  
     data.csv_summary['nmds']=nmds.tolist()
     data.csv_summary['ac_print']=X.tolist()
-    print('Acoustic print calculated succesfully')
+    print('Huella acústica calculada exitosamente')
 
 ###########################################
-### Save Data #############################
+### Guardar datos #########################
 ###########################################
 
 def save_wav():
-    p.save=askdirectory(title="Select folder to save file")   
-    print('Write the name of the file in the next line and press enter') 
+    p.save=askdirectory(title="Seleccione carpeta para guardar el archivo")   
+    print('Escriba el nombre del archivo en la siguiente línea y presione Enter') 
     w.txt=input()                                         
     filename= p.save + '/' + w.txt +'.wav'
     sound.write(filename, data.wavfs, data.wav, bit_depth=16)
-    print('File created:')
+    print('Archivo creado:')
     print(filename)
     
 def save_csv():
-    p.save=askdirectory(title="Select folder to save file")    
+    p.save=askdirectory(title="Seleccione carpeta para guardar el archivo")    
     if df.md.empty:
-        print('No metadata loaded') 
+        print('No hay metadatos cargados') 
     else:
-        filename= p.save + '/' + 'meta_data'
+        print('Escriba el nombre del archivo en la siguiente línea y presione Enter') 
+        w.txt=input()  
+        filename= p.save + '/' + 'meta_data'+ '-'  + w.txt
         df.md.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
-        print('File created:')
+        print('Archivo creado:')
         print(filename)   
         
     if data.csv_data.empty:
-        print('No raw data loaded') 
+        print('No hay datos crudos cargados') 
     else:
+        print('Escriba el nombre del archivo en la siguiente línea y presione Enter') 
+        w.txt=input()  
         filename= p.save + '/' + 'raw_data'
         data.md.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
-        print('File created:')
+        print('Archivo creado:')
         print(filename)   
         
     if data.csv_summary.empty:
-        print('No summary of set of recorders loaded') 
+        print('No hay resumen del conjunto de grabadoras cargado') 
     else:
-        filename= p.save + '/' + 'summary' 
+        print('Escriba el nombre del archivo en la siguiente línea y presione Enter') 
+        w.txt=input()  
+        filename= p.save + '/' + 'summary' + '-'  + w.txt
         data.csv_summary.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
         #data.csv_summary.to_excel('summary.xlsx')
-        print('File created:')
+        print('Archivo creado:')
         print(filename)         
 
 ### Checkbox ###########################################################
@@ -231,76 +240,76 @@ root.geometry('500x550')
 
 ##### Frame buttons###############################################
 frame_bf=ttk.Frame(root); frame_bf.grid(row=1,column=1)
-lbf=ttk.Label(frame_bf,text="Load audio files"); lbf.grid(row=0,column=1)
+lbf=ttk.Label(frame_bf,text="Cargar archivos de audio"); lbf.grid(row=0,column=1)
 
 #Folder of recorders
-b_read_recs=tk.Button(frame_bf,text="Load set of recorders",padx=10,pady=5,fg="white",bg="#263D42", command=prep_recs)
+b_read_recs=tk.Button(frame_bf,text="Cargar conjunto de grabadoras",padx=10,pady=5,fg="white",bg="#263D42", command=prep_recs)
 b_read_recs.grid(row=3,column=1)
 
 
 #Recorder
-b_read_folder=tk.Button(frame_bf,text="Load one recorder",padx=10,pady=5,fg="white",bg="#263D42", command=get_data_files)
+b_read_folder=tk.Button(frame_bf,text="Cargar una grabadora",padx=10,pady=5,fg="white",bg="#263D42", command=get_data_files)
 b_read_folder.grid(row=2,column=1)
 
 #File
-b_read_fi=tk.Button(frame_bf,text="Load file",padx=10,pady=5,fg="white",bg="#263D42", command=read_file)
+b_read_fi=tk.Button(frame_bf,text="Cargar archivo",padx=10,pady=5,fg="white",bg="#263D42", command=read_file)
 b_read_fi.grid(row=1,column=1)
 
-b_days=tk.Button(frame_bf,text="Select days",padx=10,pady=5,fg="white",bg="#263D42", command=sel_days)
+b_days=tk.Button(frame_bf,text="Seleccionar días",padx=10,pady=5,fg="white",bg="#263D42", command=sel_days)
 b_days.grid(row=4,column=1)
 
 #Functions
 
 frame_bfi=ttk.Frame(frame_bf)
 frame_bfi.grid(row=6,column=1,pady=50)
-lbf=ttk.Label(frame_bfi,text="Functions for datasets"); lbf.grid(row=0,column=1)
+lbf=ttk.Label(frame_bfi,text="Funciones para conjuntos de datos"); lbf.grid(row=0,column=1)
 
-b_analyze_day=tk.Button(frame_bfi,text="Spectrogram (file or one-day)",padx=10,pady=5,fg="white",bg="#263D42", command=one_day_spec)
+b_analyze_day=tk.Button(frame_bfi,text="Espectrograma (archivo o un día)",padx=10,pady=5,fg="white",bg="#263D42", command=one_day_spec)
 b_analyze_day.grid(row=3,column=1)
 
-b_read_fi=tk.Button(frame_bfi,text="Regions of interest",padx=10,pady=5,fg="white",bg="#263D42", command=rois_gui)
+b_read_fi=tk.Button(frame_bfi,text="Regiones de interés",padx=10,pady=5,fg="white",bg="#263D42", command=rois_gui)
 b_read_fi.grid(row=4,column=1)
 
-b_ind=analyze_recs=tk.Button(frame_bfi,text="Calculate acoustic indices",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_ind)
+b_ind=analyze_recs=tk.Button(frame_bfi,text="Calcular índices acústicos",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_ind)
 b_ind.grid(row=5,column=1)
 
 
-b_spl=analyze_recs=tk.Button(frame_bfi,text="Calculate SPL",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_spl)
+b_spl=analyze_recs=tk.Button(frame_bfi,text="Calcular SPL",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_spl)
 b_spl.grid(row=6,column=1)
 
-b_spl=analyze_recs=tk.Button(frame_bfi,text="Acoustic Print",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print)
+b_spl=analyze_recs=tk.Button(frame_bfi,text="Huella acústica",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print)
 b_spl.grid(row=7,column=1)
 ##################################################################
 
 ##### Frame buttons save ##########################################
 frame_bsave=ttk.Frame(root); frame_bsave.grid(row=2,column=1)
-lbf=ttk.Label(frame_bsave,text="Save"); lbf.grid(row=0,column=1)
-b_save_wav=tk.Button(frame_bsave,text="Save audio file (.wav)",padx=10,pady=5,fg="white",bg="#263D42", command=save_wav)
+lbf=ttk.Label(frame_bsave,text="Guardar"); lbf.grid(row=0,column=1)
+b_save_wav=tk.Button(frame_bsave,text="Guardar archivo de audio (.wav)",padx=10,pady=5,fg="white",bg="#263D42", command=save_wav)
 b_save_wav.grid(row=1,column=1)
-b_save_csv=tk.Button(frame_bsave,text="Save data (.cvs)",padx=10,pady=5,fg="white",bg="#263D42", command=save_csv)
+b_save_csv=tk.Button(frame_bsave,text="Guardar datos (.csv)",padx=10,pady=5,fg="white",bg="#263D42", command=save_csv)
 b_save_csv.grid(row=2,column=1)
 ###################################################################
 
 ##### Frame Variables  ###########################################
 frame_var=ttk.Frame(root); frame_var.grid(row=1,column=2)
 ##### Recorder
-l0 = tk.Label(frame_var, text="Recorder format"); l0.grid(row=1,column=1)
-cbox = ttk.Combobox(frame_var,values=['Audiomoth: aammdd_hhmmss','SongMeter: name_aammdd_hhmmss','Snap: name_aammddThhmmss'],width=29,state='readonly')
-cbox.grid(row=1,column=2); cbox.set('Select a recorder format')
+l0 = tk.Label(frame_var, text="Formato de grabadora"); l0.grid(row=1,column=1)
+cbox = ttk.Combobox(frame_var,values=['Audiomoth: aammdd_hhmmss','SongMeter: nombre_aammdd_hhmmss','Snap: nombre_aammddThhmmss'],width=29,state='readonly')
+cbox.grid(row=1,column=2); cbox.set('Seleccione un formato de grabadora')
 ## Custom variables check
-lc = tk.Label(frame_var, text="Use custom variables"); lc.grid(row=2,column=1)
+lc = tk.Label(frame_var, text="Usar variables personalizadas"); lc.grid(row=2,column=1)
 ch_rec=tk.IntVar();ch1 = tk.Checkbutton(frame_var, command=activ_spec_vars,variable=ch_rec)
 ch1.grid(row=2,column=2)
-## dB floor
-ldb = tk.Label(frame_var, text="dB floor"); ldb.grid(row=3,column=1); 
+## Nivel dB mínimo
+ldb = tk.Label(frame_var, text="Nivel dB mínimo"); ldb.grid(row=3,column=1); 
 db = tk.Entry(frame_var,bd=5,state='disabled'); db.grid(row=3,column=2)
-l1 = tk.Label(frame_var, text="Fmin"); l1.grid(row=4,column=1)
+l1 = tk.Label(frame_var, text="Fmin (Hz)"); l1.grid(row=4,column=1)
 fmine = tk.Entry(frame_var,bd=5,state='disabled'); fmine.grid(row=4,column=2)
 # Fmax
-l2 = tk.Label(frame_var, text="Fmax"); l2.grid(row=5,column=1)
+l2 = tk.Label(frame_var, text="Fmax (Hz)"); l2.grid(row=5,column=1)
 fmaxe = tk.Entry(frame_var,bd=5,state='disabled'); fmaxe.grid(row=5,column=2)
 ## Time seg
-l3= tk.Label(frame_var, text="Time segments"); l3.grid(row=6,column=1)
+l3= tk.Label(frame_var, text="Segmentos de tiempo"); l3.grid(row=6,column=1)
 tlene = tk.Entry(frame_var,bd=5,state='disabled'); tlene.grid(row=6,column=2)
 ## bin_std
 l= tk.Label(frame_var, text="bin_std"); l.grid(row=7,column=1)
@@ -310,5 +319,5 @@ l= tk.Label(frame_var, text="bin_per"); l.grid(row=8,column=1)
 bp = tk.Entry(frame_var,bd=5,state='disabled'); bp.grid(row=8,column=2); db.insert(0, "0.25")
 
 #################################################################
-
-root.mainloop()
+if __name__ == "__main__":
+    root.mainloop()
