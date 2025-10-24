@@ -154,6 +154,9 @@ def calculate_acoustic_print():
     data.npy_matrixAcousticPrint=matrixAcousticPrint
     print('Huella acústica calculada exitosamente')
 
+def calculate_acoustic_print_by_days():
+    print('Calculando huella acústica por días')
+
 ###########################################
 ### Guardar datos #########################
 ###########################################
@@ -166,38 +169,92 @@ def save_wav():
     sound.write(filename, data.wavfs, data.wav, bit_depth=16)
     print('Archivo creado:')
     print(filename)
+
+def summary_compilation():
+    print('Seleccione la carpeta donde están los resúmenes (.csv) a compilar')
+    src_dir = askdirectory(title="Seleccione carpeta de resúmenes")
+    if not src_dir:
+        print('Operación cancelada: no se seleccionó carpeta')
+        return
+
+    # Buscar archivos de resumen generados por la app
+    patterns = [
+        os.path.join(src_dir, 'resumen_general_conjunto_grabadoras_*.csv')
+    ]
+    files = []
+    for pat in patterns:
+        files.extend(glob.glob(pat))
+    # Unicos y ordenados
+    files = sorted(list(dict.fromkeys(files)))
+
+    if not files:
+        print('No se encontraron archivos de resumen en la carpeta seleccionada')
+        return
+
+    print('Archivos encontrados:')
+    for f in files:
+        print(' - ' + os.path.basename(f))
+
+    # Leer y concatenar (reordenando columnas al orden canónico)
+    dfs = []
+    df_tmp = pd.read_csv(f, sep='\t', header=0, encoding='utf-8')
+    df_tmp['source_file'] = os.path.basename(f)
+    dfs.append(df_tmp)
+
+
+    if not dfs:
+        print('No se pudo leer ningún archivo válido')
+        return
+
+    # Orden de columnas final (canónico + source_file)
+    df_all = pd.concat(dfs, ignore_index=True, sort=False)
+
+    # Elegir carpeta de destino
+    print('Seleccione la carpeta de destino para guardar el archivo compilado')
+    dst_dir = askdirectory(title="Seleccione carpeta de destino")
+    if not dst_dir:
+        print('Operación cancelada: no se seleccionó carpeta de destino')
+        return
+
+    print('Escriba el nombre base del archivo compilado y presione Enter')
+    out_base = input().strip()
+    if not out_base:
+        out_base = 'resumen_compilado'
+
+    out_path = os.path.join(dst_dir, f'{out_base}.csv')
+    try:
+        df_all.to_csv(out_path, sep='\t', header=True, index=False, encoding='utf-8')
+        print('Archivo compilado creado:')
+        print(out_path)
+    except Exception as e:
+        print(f'Error guardando el archivo compilado: {e}')
     
 def save_csv():
     p.save = askdirectory(title="Seleccione carpeta para guardar el archivo")
+    print('Escriba el nombre del archivo en la siguiente línea y presione Enter') 
+    txt_name=input()
+
     if df.md.empty:
         print('No hay metadatos cargados')
     else:
-        filename = p.save + '/' + 'meta_data'
+        filename = p.save + '/' + 'meta_datos' + '_' + txt_name + '.csv'
         df.md.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
-        print('File created:')
-        print(filename)
-
-    if data.csv_data.empty:
-        print('No raw data loaded')
-    else:
-        filename = p.save + '/' + 'raw_data'
-        data.csv_data.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
         print('File created:')
         print(filename)
 
     if data.csv_summary.empty:
         print('No hay resumen del conjunto de grabadoras cargado')
     else:
-        filename = p.save + '/' + 'summary'
+        filename = p.save + '/' + 'resumen_general_conjunto_grabadoras'+ '_' + txt_name + '.csv'
         data.csv_summary.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
         # data.csv_summary.to_excel('summary.xlsx')
         print('Archivo creado:')
         print(filename)
 
     if data.npy_matrixAcousticPrint is None:
-        print('No hay resumen del conjunto de grabadoras cargado')
+        print('No hay matriz de huella acústica cargada')
     else:
-        filename = p.save + '/' + 'matrixOfAcousticPrints'
+        filename = p.save + '/' + 'matrixOfAcousticPrints' + '_' + txt_name + '.npy'
         np.save(filename, data.npy_matrixAcousticPrint)
         print('Archivo creado:')
         print(filename)
@@ -225,11 +282,25 @@ def activ_spec_vars():
 ##########################################################################
 #########                          GUI                     ###############
 ##########################################################################
-##########################################################################
-        
+##########################################################################  
 root=tk.Tk()
 cwd = os.getcwd()
-root.geometry('500x550')    
+# Let the window adapt to the content instead of a fixed size
+# root.geometry('580x550')
+root.update_idletasks()
+root.minsize(root.winfo_reqwidth(), root.winfo_reqheight())
+root.resizable(True, True)
+# Make root grid cells expandable
+for r in (1, 2):
+    try:
+        root.grid_rowconfigure(r, weight=1)
+    except Exception:
+        pass
+for c in (1, 2):
+    try:
+        root.grid_columnconfigure(c, weight=1)
+    except Exception:
+        pass
 
 ##### Frame buttons###############################################
 frame_bf=ttk.Frame(root); frame_bf.grid(row=1,column=1)
@@ -251,8 +322,7 @@ b_read_fi.grid(row=1,column=1)
 b_days=tk.Button(frame_bf,text="Seleccionar días",padx=10,pady=5,fg="white",bg="#263D42", command=sel_days)
 b_days.grid(row=4,column=1)
 
-#Functions
-
+#Functions for set of recorders ##############################
 frame_bfi=ttk.Frame(frame_bf)
 frame_bfi.grid(row=6,column=1,pady=50)
 lbf=ttk.Label(frame_bfi,text="Funciones para conjuntos de datos"); lbf.grid(row=0,column=1)
@@ -263,16 +333,18 @@ b_analyze_day.grid(row=3,column=1)
 b_read_fi=tk.Button(frame_bfi,text="Regiones de interés",padx=10,pady=5,fg="white",bg="#263D42", command=rois_gui)
 b_read_fi.grid(row=4,column=1)
 
-b_ind=analyze_recs=tk.Button(frame_bfi,text="Calcular índices acústicos",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_ind)
+b_ind=tk.Button(frame_bfi,text="Calcular índices acústicos",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_ind)
 b_ind.grid(row=5,column=1)
 
 
-b_spl=analyze_recs=tk.Button(frame_bfi,text="Calcular SPL",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_spl)
+b_spl=tk.Button(frame_bfi,text="Calcular SPL",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_spl)
 b_spl.grid(row=6,column=1)
 
-b_spl=analyze_recs=tk.Button(frame_bfi,text="Huella acústica",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print)
-b_spl.grid(row=7,column=1)
+b_ha=tk.Button(frame_bfi,text="Huella acústica",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print)
+b_ha.grid(row=7,column=1)
 
+b_had=tk.Button(frame_bfi,text="Huella acústica por días",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print_by_days)
+b_had.grid(row=8,column=1)
 ##################################################################
 
 ##### Frame buttons save ##########################################
@@ -280,8 +352,10 @@ frame_bsave=ttk.Frame(root); frame_bsave.grid(row=2,column=1)
 lbf=ttk.Label(frame_bsave,text="Guardar"); lbf.grid(row=0,column=1)
 b_save_wav=tk.Button(frame_bsave,text="Guardar archivo de audio (.wav)",padx=10,pady=5,fg="white",bg="#263D42", command=save_wav)
 b_save_wav.grid(row=1,column=1)
+b_comp=tk.Button(frame_bsave,text="Compilar resúmenes",padx=10,pady=5,fg="white",bg="#263D42", command=summary_compilation)
+b_comp.grid(row=2,column=1)
 b_save_csv=tk.Button(frame_bsave,text="Guardar datos (.csv)",padx=10,pady=5,fg="white",bg="#263D42", command=save_csv)
-b_save_csv.grid(row=2,column=1)
+b_save_csv.grid(row=3,column=1)
 ###################################################################
 
 ##### Frame Variables  ###########################################
@@ -311,7 +385,8 @@ bstd = tk.Entry(frame_var,bd=5,state='disabled'); bstd.grid(row=7,column=2)
 ## bin_per
 l= tk.Label(frame_var, text="bin_per"); l.grid(row=8,column=1)
 bp = tk.Entry(frame_var,bd=5,state='disabled'); bp.grid(row=8,column=2); db.insert(0, "0.25")
-
 #################################################################
+
+
 if __name__ == "__main__":
     root.mainloop()
