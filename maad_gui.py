@@ -23,7 +23,7 @@ import pandas as pd
 df=obj.metadata(pd.DataFrame(),'_','_','_')
 w=obj.widget('ch_rec','flims','txt','tlen','db','bstd','bper')
 p=obj.path('_','_')
-data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame())
+data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame(),[])
 flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
@@ -106,7 +106,7 @@ def rois_gui():
                                                                fmaxe,'_',data.wavfs,db,bstd,bp)
             #analyzis.rois_spec(data,w.flims,ch_rec,w.db)
             print('Inicio de cálculo de regiones (ROIs)')
-            _rois, _im_rois = analyzis.rois_spec(data,w.flims,ch_rec,w.db,w.bstd,w.bper) 
+            _rois, _im_rois = analyze.rois_spec(data,w.flims,ch_rec,w.db,w.bstd,w.bper) 
             
         else:
             print('Cargue el audio primero')
@@ -121,7 +121,7 @@ def one_day_spec():
     if flag.load=='file':
         w.flims, _ ,w.db, _ , _ , _ = obj.get_info_widgets(ch_rec,fmine,
                                                            fmaxe,'_',data.wavfs,db,'_','_')
-        analyzis.shortwave(data.wav,data.wavfs,w.flims,w.db) 
+        analyze.shortwave(data.wav,data.wavfs,w.flims,w.db) 
     
     elif flag.load=='folder':
         w.flims,w.samp_len,w.db, _ , _,ch =obj.get_info_widgets(ch_rec,fmine,fmaxe,tlene,df.fs,db,'_','_')
@@ -148,7 +148,7 @@ def calculate_spl():
     
     
 def calculate_acoustic_print():    
-    X, _y, nmds, matrixAcousticPrint = analyzis.ac_print(df.md)  
+    X, _y, nmds, matrixAcousticPrint = analyze.ac_print(df.md)  
     data.csv_summary['nmds']=nmds.tolist()
     data.csv_summary['ac_print']=X.tolist()
     data.npy_matrixAcousticPrint=matrixAcousticPrint

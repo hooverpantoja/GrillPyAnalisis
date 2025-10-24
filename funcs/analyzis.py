@@ -117,6 +117,7 @@ class Analyzer:
         Ls = len(group_site)
         k = 0
         ind_sites = []
+
         for site, data_site in group_site:
             print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
             group_day = data_site.groupby(['day'])
@@ -312,20 +313,22 @@ class Analyzer:
             mask = Stt_db > 0
             Sm = Stt_db * mask
             Sd = downscale_local_mean(Sm, (8, 1))
-            plt.figure()
-            plt.ylabel('Hour')
-            plt.xlabel('Frequency (kHz)')
-            plt.title(site)
-            imshow(Sd, aspect='auto', origin='lower', extent=[tn[0], tn[len(tn) - 1], 0, fn[-1] / 1000])
+            # Create a dedicated figure per site to avoid reuse
+            fig_site, ax_site = plt.subplots()
+            ax_site.set_ylabel('Hour')
+            ax_site.set_xlabel('Frequency (kHz)')
+            ax_site.set_title(str(site))
+            ax_site.imshow(Sd, aspect='auto', origin='lower', extent=[tn[0], tn[len(tn) - 1], 0, fn[-1] / 1000])
+            fig_site.tight_layout()
             # Save figure per site and render immediately
-            fig_site = plt.gcf()
             safe_site = ''.join(c if (c.isalnum() or c in '._- ') else '_' for c in str(site))
             fig_site.savefig(f"site_print_{safe_site}.png", dpi=150, bbox_inches='tight')
             Ssites[:, :, k] = Sd
             X[k, :] = np.ravel(Sd, order='C')
             sites_ind.append(site)
+            fig_site.canvas.draw_idle()
             plt.show(block=False)
-            plt.pause(0.001)
+            plt.pause(0.05)
             k = k + 1
             print('progress: ' + str(k) + ' of ' + str(Ls))
 
@@ -333,11 +336,11 @@ class Analyzer:
         metric = True
         dist_matrix = dist_euclid
         y = np.transpose(sites_ind)
-
         mds = MDS(metric=metric, dissimilarity='precomputed', random_state=0)
         pts = mds.fit_transform(dist_matrix)
-        plt.figure()
-        fig2 = plt.figure(1, (15, 6))
+
+        # Create a new figure for the MDS scatter (do not reuse figure 1)
+        fig2 = plt.figure(figsize=(15, 6))
         ax2 = fig2.add_subplot()
         plt.scatter(pts[:, 0], pts[:, 1])
         for x, ind in zip(X, range(pts.shape[0])):
@@ -347,28 +350,10 @@ class Analyzer:
             j = pts[ind, 1]
             ab = AnnotationBbox(imagebox, (i, j), frameon=False)
             ax2.add_artist(ab)
-        plt.title('Metric MDS with Euclidean')
-        plt.ylabel('NMDSy')
-        plt.xlabel('NMDSx')
-        plt.show(block=False)
 
-        plt.figure(1, (15, 6))
         sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=sites_ind, palette='pastel')
         plt.title('Metric MDS with Euclidean')
         plt.ylabel('NMDSy')
         plt.xlabel('NMDSx')
         plt.show(block=False)
-        return (X, y, pts,Ssites)
-
-# Optional module-level aliases for compatibility
-longwave = Analyzer.longwave
-shortwave = Analyzer.shortwave
-rois_spec = Analyzer.rois_spec
-ind_batch = Analyzer.ind_batch
-ind_per_day = Analyzer.ind_per_day
-compute_acoustic_indices = Analyzer.compute_acoustic_indices
-plot_acoustic_indices = Analyzer.plot_acoustic_indices
-spl_batch = Analyzer.spl_batch
-plot_spl = Analyzer.plot_spl
-ac_print = Analyzer.ac_print
-        
+        return (X, y, pts, Ssites)
