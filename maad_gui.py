@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-<
+# -*- coding: utf-8 -*-
 """
 Created on Fri Apr 14 10:56:10 2023
 
@@ -18,6 +18,7 @@ from tkinter.filedialog import askopenfilename
 from tkinter.filedialog import askdirectory
 from maad import sound #util
 import pandas as pd
+
 # Init
 df=obj.metadata(pd.DataFrame(),'_','_','_')
 w=obj.widget('ch_rec','flims','txt','tlen','db','bstd','bper')
@@ -26,8 +27,8 @@ data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame())
 flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
-analyze=analyzis.Analyzer()
-loader=load_data.Loader()
+analyze = analyzis.Analyzer()
+loader = load_data.Loader()
 
 ###########################################
 ### Load data #############################
@@ -80,7 +81,7 @@ def prep_recs():
         print(data.csv_summary)
         
 def sel_days():
-    df.days, indices = np.unique(df.md.day, return_inverse=True)  
+    df.days, _indices = np.unique(df.md.day, return_inverse=True)  
     print('Días a analizar:')
     print(df.days)
     print('Escriba los días que desea analizar en la siguiente línea separados por ":" ej: 20230504:20230507 y presione Enter:')
@@ -101,11 +102,11 @@ def rois_gui():
     ch=ch_rec.get()
     if {flag.load=='file' or flag.load=='folder'} and ch==1:
         if [data.wav] != 0:
-            w.flims, _ , w.db, w.bstd , w.bper = obj.get_info_widgets(ch_rec,fmine,
+            w.flims, _ , w.db, w.bstd , w.bper, _ = obj.get_info_widgets(ch_rec,fmine,
                                                                fmaxe,'_',data.wavfs,db,bstd,bp)
             #analyzis.rois_spec(data,w.flims,ch_rec,w.db)
             print('Inicio de cálculo de regiones (ROIs)')
-            rois, im_rois=analyzis.rois_spec(data,w.flims,ch_rec,w.db,w.bstd,w.bper) 
+            _rois, _im_rois = analyzis.rois_spec(data,w.flims,ch_rec,w.db,w.bstd,w.bper) 
             
         else:
             print('Cargue el audio primero')
@@ -124,31 +125,22 @@ def one_day_spec():
     
     elif flag.load=='folder':
         w.flims,w.samp_len,w.db, _ , _,ch =obj.get_info_widgets(ch_rec,fmine,fmaxe,tlene,df.fs,db,'_','_')
-        
-        data.wav,data.wavfs,S.Sxx,S.tn,S.fn=analyzer.longwave(df.md,p.load,w.samp_len,w.flims,w.db,ch)
+        data.wav,data.wavfs,S.Sxx,S.tn,S.fn=analyze.longwave(df.md,p.load,w.samp_len,w.flims,w.db,ch)
         print('Plot finished')
-        
+    
     elif flag.load=='set':
         print('Spectrogram can not be ploted for set of recorders')
     
-### For one recorder or set of recorders #############       
-"""def calculate_ind():         
-    print('Calculando índices acústicos')      
-    df_ind=analyzis.ind_batch(df.md)
-    analyzis.plot_acoustic_indices(df_ind)  
-    df.md=[]; df.md=df_ind
-    data.csv_data=df_ind    
-    print('Acoustic indices calculated')"""
-    
+### For one recorder or set of recorders #############          
 def calculate_ind():         
     print('Calculating indices')       
-    X=analyzer.ind_per_day(df.md)
+    X = analyze.ind_per_day(df.md)
     print(str(X))
         
 def calculate_spl():     
     print('Calculando SPL')
-    df_spl, df_sum=analyzer.spl_batch(df.md)    
-    analyzer.plot_spl(df_spl) 
+    df_spl, df_sum = analyze.spl_batch(df.md)
+    analyze.plot_spl(df_spl)
     df.md=[]; df.md=df_spl
     data.csv_data=df_spl 
     data.csv_summary=df_sum
@@ -156,9 +148,10 @@ def calculate_spl():
     
     
 def calculate_acoustic_print():    
-    X,y,nmds=analyzis.ac_print(df.md)  
+    X, _y, nmds, matrixAcousticPrint = analyzis.ac_print(df.md)  
     data.csv_summary['nmds']=nmds.tolist()
     data.csv_summary['ac_print']=X.tolist()
+    data.npy_matrixAcousticPrint=matrixAcousticPrint
     print('Huella acústica calculada exitosamente')
 
 ###########################################
@@ -175,51 +168,57 @@ def save_wav():
     print(filename)
     
 def save_csv():
-    p.save=askdirectory(title="Seleccione carpeta para guardar el archivo")    
+    p.save = askdirectory(title="Seleccione carpeta para guardar el archivo")
     if df.md.empty:
-        print('No hay metadatos cargados') 
+        print('No hay metadatos cargados')
     else:
-        filename= p.save + '/' + 'meta_data'
+        filename = p.save + '/' + 'meta_data'
         df.md.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
         print('File created:')
-        print(filename)   
-        
+        print(filename)
+
     if data.csv_data.empty:
-        print('No raw data loaded') 
+        print('No raw data loaded')
     else:
-        filename= p.save + '/' + 'raw_data'
-        data.md.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
+        filename = p.save + '/' + 'raw_data'
+        data.csv_data.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
         print('File created:')
-        print(filename)   
-        
+        print(filename)
+
     if data.csv_summary.empty:
-        print('No hay resumen del conjunto de grabadoras cargado') 
+        print('No hay resumen del conjunto de grabadoras cargado')
     else:
-        filename= p.save + '/' + 'summary' 
+        filename = p.save + '/' + 'summary'
         data.csv_summary.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
-        #data.csv_summary.to_excel('summary.xlsx')
+        # data.csv_summary.to_excel('summary.xlsx')
         print('Archivo creado:')
-        print(filename)         
+        print(filename)
+
+    if data.npy_matrixAcousticPrint is None:
+        print('No hay resumen del conjunto de grabadoras cargado')
+    else:
+        filename = p.save + '/' + 'matrixOfAcousticPrints'
+        np.save(filename, data.npy_matrixAcousticPrint)
+        print('Archivo creado:')
+        print(filename)
 
 ### Checkbox ###########################################################
 def activ_spec_vars():
-    ch=ch_rec.get()
-    if ch==1:
-        db.configure(state='normal');fmine.configure(state='normal') 
-        fmaxe.configure(state='normal'); tlene.configure(state='normal') 
-        bstd.configure(state='normal') ; bp.configure(state='normal') 
-        db.delete(0,'end'); db.insert(0, "0"); 
-        fmine.delete(0,'end'); fmine.insert(0, "100"); 
+    ch = ch_rec.get()
+    if ch == 1:
+        db.configure(state='normal'); fmine.configure(state='normal')
+        fmaxe.configure(state='normal'); tlene.configure(state='normal')
+        bstd.configure(state='normal'); bp.configure(state='normal')
+        db.delete(0,'end'); db.insert(0, "0")
+        fmine.delete(0,'end'); fmine.insert(0, "100")
         fmaxe.delete(0,'end'); fmaxe.insert(0, "10000")
-        tlene.delete(0,'end'); tlene.insert(0, "5");  
-        bstd.delete(0,'end'); bstd.insert(0, "0.8");  
+        tlene.delete(0,'end'); tlene.insert(0, "5")
+        bstd.delete(0,'end'); bstd.insert(0, "0.8")
         bp.delete(0,'end'); bp.insert(0, "0.1")
-        # Fmax
-        
-    elif ch==0:     
+    else:
         db.configure(state='disabled'); fmine.configure(state='disabled')
-        fmaxe.configure(state='disabled');tlene.configure(state='disabled')                     
-        bstd.configure(state='disabled') ; bp.configure(state='disabled')
+        fmaxe.configure(state='disabled'); tlene.configure(state='disabled')
+        bstd.configure(state='disabled'); bp.configure(state='disabled')
         
         
 ##########################################################################
@@ -273,6 +272,7 @@ b_spl.grid(row=6,column=1)
 
 b_spl=analyze_recs=tk.Button(frame_bfi,text="Huella acústica",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print)
 b_spl.grid(row=7,column=1)
+
 ##################################################################
 
 ##### Frame buttons save ##########################################
@@ -295,7 +295,7 @@ lc = tk.Label(frame_var, text="Usar variables personalizadas"); lc.grid(row=2,co
 ch_rec=tk.IntVar();ch1 = tk.Checkbutton(frame_var, command=activ_spec_vars,variable=ch_rec)
 ch1.grid(row=2,column=2)
 ## Nivel dB mínimo
-ldb = tk.Label(frame_var, text="Nivel dB mínimo"); ldb.grid(row=3,column=1); 
+ldb = tk.Label(frame_var, text="Nivel dB mínimo"); ldb.grid(row=3,column=1)
 db = tk.Entry(frame_var,bd=5,state='disabled'); db.grid(row=3,column=2)
 l1 = tk.Label(frame_var, text="Fmin (Hz)"); l1.grid(row=4,column=1)
 fmine = tk.Entry(frame_var,bd=5,state='disabled'); fmine.grid(row=4,column=2)

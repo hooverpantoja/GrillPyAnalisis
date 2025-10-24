@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-class load_data:
+class Loader:
     def __init__(self):
         pass
 
@@ -28,7 +28,7 @@ class load_data:
             else:
                 file = os.path.basename(j)
                 
-            if recorder=='SongMeter: name_aammdd_hhmmss':
+            if recorder=='SongMeter: nombre_aammdd_hhmmss':
                 ind=cls.find(file,'_')
                 ind.append(file.find('.'))
                 d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=file[0:ind[0]]
@@ -119,9 +119,3 @@ class load_data:
         # boolean indexing to avoid pandas query with @ variables
         df_day = df[(df['date_fmt'] >= init) & (df['date_fmt'] < fin)]
         return df_day
-
-# Backward compatibility: allow calling as module-level functions
-create_df = load_data.create_df
-plot_folder_stats = load_data.plot_folder_stats
-plot_set_recorders = load_data.plot_set_recorders
-update_df = load_data.update_df

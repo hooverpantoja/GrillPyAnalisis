@@ -4,8 +4,9 @@ Created on Wed Apr 26 14:29:00 2023
 
 @author: Esteban
 """
-def find(s, ch):
-    return [i for i, ltr in enumerate(s) if ltr == ch]
+class matrixAcousticPrint:
+    def __init__(self,matrix):
+        self.load=matrix
 
 class flag:
     def __init__(self,enter,load):
@@ -42,12 +43,13 @@ class path:
         self.save = save
         
 class data:
-    def __init__(self, wav, wavfs, csv_summary,csv_data):
+    def __init__(self, wav, wavfs, csv_summary,csv_data,npy_matrixAcousticPrint):
         self.wav = wav
         self.wavfs = wavfs
         self.csv_summary = csv_summary
         self.csv_data = csv_data
-        
+        self.npy_matrixAcousticPrint = npy_matrixAcousticPrint
+
 def get_info_widgets(ch_rec,fmine,fmaxe,tlene,fs,db,bstd,bp):
     if ch_rec == '_': ch= '_'; flims= '_'; samp_len='_'; dbf='_'
     else:
@@ -80,7 +82,7 @@ def get_text(textbox):
     if textbox == '_': txt= '_' 
     else:
         txtt=textbox.get("1.0",'end-1c')
-        ind=find(txtt,'\n')
+        ind=[i for i, ltr in enumerate(txtt) if ltr == '\n']
         init=ind[len(ind)-2]+1; end=len(txtt)-1 #init-> second to last index plus one position to the right; end lenght of the string minus one position to the left 
         txt=txtt[init:end]
         return(txt)
