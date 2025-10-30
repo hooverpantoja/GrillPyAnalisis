@@ -350,9 +350,12 @@ class Analyzer:
             j = pts[ind, 1]
             ab = AnnotationBbox(imagebox, (i, j), frameon=False)
             ax2.add_artist(ab)
+        plt.show(block=False)
 
+        fig3 = plt.figure(figsize=(15, 6))
+        ax2 = fig3.add_subplot()
         sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=sites_ind, palette='pastel')
-        plt.title('Metric MDS with Euclidean')
+        plt.title('Metric NMDS with Euclidean distances')
         plt.ylabel('NMDSy')
         plt.xlabel('NMDSx')
         plt.show(block=False)
