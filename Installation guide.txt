@@ -1,16 +1,24 @@
-1. Instalar miniconda: https://docs.conda.io/en/latest/miniconda.html
-2. Abrir la conosola de miniconda miniconda: windows -> anaconda
-3. Ubicarse en el folder del repositorio (copiar y pegar la direcciòn exacta en el que se guardò del repositorio) 
-	Ejemplo:
-	>>> cd C:\Users\User1\Desktop\MAAD_GUI 
+1. Instalar Miniconda: https://docs.conda.io/en/latest/miniconda.html
 
-4. Desde la consola instalar las dependencias corriendo la liena:
+2. Inicializar conda para la consola de Windows (cmd):
+	Abrir cmd y ejecutar:
+	>>> "C:\\ProgramData\\miniconda3\\Scripts\\conda.exe" init cmd.exe
+	Cerrar y volver a abrir la consola.
+
+3. Ubicarse en el folder del repositorio (copiar y pegar la ruta exacta donde se guardó):
+	Ejemplo:
+	>>> cd C:\\Users\\User1\\Desktop\\GrillPyAnalisis
+
+4. Crear el ambiente con las dependencias desde `environment.yml`:
 	>>> conda env create -f environment.yml
-	en caso de que el ambiente ya estè instalado y se desee actualizar correr la linea:
+	Si el ambiente ya existe y desea actualizarlo:
 	>>> conda env update -f environment.yml --prune
 
-4. Activar el ambiente
-	>>>conda activate maad_gui
+5. Activar el ambiente
+	>>> conda activate grillpy
 
-5. Ejecutar el programa en python
-	>>> python maad_gui.py
+6. Verificar instalación de seaborn
+	>>> python -c "import seaborn as sns; print(sns.__version__)"
+
+7. Ejecutar el programa en Python (ajuste al nombre real del archivo principal si es diferente)
+	>>> python grillpy.py
