@@ -156,6 +156,10 @@ def calculate_acoustic_print():
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
+    X,y,nmds = analyze.ac_print_by_days(df.md)  
+    data.csv_summary['nmds']=nmds.tolist()      
+    data.csv_summary['ac_print']=X.tolist()
+    print('Huella acústica por días calculada exitosamente')
 
 ###########################################
 ### Guardar datos #########################

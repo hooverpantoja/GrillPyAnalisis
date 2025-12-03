@@ -360,3 +360,94 @@ class Analyzer:
         plt.xlabel('NMDSx')
         plt.show(block=False)
         return (X, y, pts, Ssites)
+    
+    @classmethod
+    def ac_print_by_days(cls, df):
+        plt.ion()
+        group_site = df.groupby(['site'])
+        Ls = len(group_site)
+        group_day = df.groupby(['day'])
+        L_days = len(group_day)
+        L_treatments = Ls * L_days
+        print("Number of treatments (site-day combinations): " + str(L_treatments))
+        k = 0
+        Ssites = np.zeros([65, 48, L_treatments])
+        X = np.zeros([L_treatments, 65 * 48])
+        sites_ind = []
+        k = 0
+        for site, data_site in group_site:
+            print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
+            group_day = data_site.groupby(['day'])
+            Ld = len(group_day) 
+            for day, data_day in group_day:
+                print('dia: ' + str(day) + ' # ' + str(k + 1) + ' of ' + str(Ld) + ' days')
+                group_hour = data_day.groupby(['hour'])
+                Lh = len(group_hour)
+                i = 0
+                Stt = np.zeros([513, Lh])
+                tn = np.zeros([Lh])
+                for hour, rows in group_hour:
+                    tn[i] = sum(hour)
+                    L = len(rows)
+                    St = np.zeros(513)
+                    for _, row in rows.iterrows():
+                        file = row['route']
+                        s, fs = sound.load(file)
+                        s = sound.resample(s, fs, 48000, res_type='kaiser_fast')
+                        fs = 48000
+                        Stmp, fn = sound.spectrum(s, fs, window='hann', nperseg=1024, noverlap=512)
+                        St = St + Stmp
+                    St = St / L
+                    Stt[:, i] = St
+                    i = i + 1
+                    print('progreso: ' + str(i) + ' horas de ' + str(Lh))
+                values, counts = np.unique(Stt[128:384, :], return_counts=True)
+                mc = values[counts.argmax()]
+                Stt_db = 20 * np.log10(Stt / mc)
+                mask = Stt_db > 0
+                Sm = Stt_db * mask
+                Sd = downscale_local_mean(Sm, (8, 1))
+                # Create a dedicated figure per day to avoid reuse
+                fig_day, ax_day = plt.subplots()
+                ax_day.set_ylabel('Hour')
+                ax_day.set_xlabel('Frequency (kHz)')
+                ax_day.set_title('sitio: ' + str(site)+ 'día: '+str(day))
+                ax_day.imshow(Sd, aspect='auto', origin='lower', extent=[tn[0], tn[len(tn) - 1], 0, fn[-1] / 1000])
+                fig_day.tight_layout()
+                fig_day.savefig(str(site)+'_'+str(day)+'.png', dpi=150, bbox_inches='tight')
+                plt.show(block=False)
+                plt.pause(0.05)
+                Ssites[:, :, k] = Sd
+                X[k, :] = np.ravel(Sd, order='C')
+                k = k + 1
+                sites_ind.append(k)
+                print('progreso: ' + str(k) + ' días de ' + str(Ls))
+        
+        dist_euclid = euclidean_distances(X)
+        metric = True
+        dist_matrix = dist_euclid
+        y = np.transpose(sites_ind)
+        mds = MDS(metric=metric, dissimilarity='precomputed', random_state=0)
+        pts = mds.fit_transform(dist_matrix)
+
+        # Create a new figure for the MDS scatter (do not reuse figure 1)
+        fig2 = plt.figure(figsize=(15, 6))
+        ax2 = fig2.add_subplot()
+        plt.scatter(pts[:, 0], pts[:, 1])
+        for x, ind in zip(X, range(pts.shape[0])):
+            im = x.reshape(65, 48)
+            imagebox = OffsetImage(im, zoom=0.7, cmap=cm.get_cmap('viridis'))
+            i = pts[ind, 0]
+            j = pts[ind, 1]
+            ab = AnnotationBbox(imagebox, (i, j), frameon=False)
+            ax2.add_artist(ab)
+        plt.show(block=False)
+
+        fig3 = plt.figure(figsize=(15, 6))
+        ax2 = fig3.add_subplot()
+        sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=sites_ind, palette='pastel')
+        plt.title('Metric NMDS with Euclidean distances')
+        plt.ylabel('NMDSy')
+        plt.xlabel('NMDSx')
+        plt.show(block=False)
+        return (X, y, pts)
