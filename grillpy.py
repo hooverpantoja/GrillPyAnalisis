@@ -122,12 +122,12 @@ def one_day_spec():
         w.flims, _ ,w.db, _ , _ , _ = obj.get_info_widgets(ch_rec,fmine,
                                                            fmaxe,'_',data.wavfs,db,'_','_')
         analyze.shortwave(data.wav,data.wavfs,w.flims,w.db) 
-    
+
     elif flag.load=='folder':
         w.flims,w.samp_len,w.db, _ , _,ch =obj.get_info_widgets(ch_rec,fmine,fmaxe,tlene,df.fs,db,'_','_')
         data.wav,data.wavfs,S.Sxx,S.tn,S.fn=analyze.longwave(df.md,p.load,w.samp_len,w.flims,w.db,ch)
         print('Plot finished')
-    
+
     elif flag.load=='set':
         print('Spectrogram can not be ploted for set of recorders')
     
@@ -148,17 +148,36 @@ def calculate_spl():
     
     
 def calculate_acoustic_print():    
-    X, _y, nmds, matrixAcousticPrint = analyze.ac_print(df.md)  
-    data.csv_summary['nmds']=nmds.tolist()
-    data.csv_summary['ac_print']=X.tolist()
-    data.npy_matrixAcousticPrint=matrixAcousticPrint
+    X, _y, nmds, matrixAcousticPrint = analyze.ac_print(df.md)
+    # Convert to native lists
+    nmds_list = nmds.tolist() if hasattr(nmds, 'tolist') else list(nmds)
+    X_list = X.tolist() if hasattr(X, 'tolist') else list(X)
+    # Store matrix
+    data.npy_matrixAcousticPrint = matrixAcousticPrint
+    # If csv_summary has the same number of rows, assign per-row lists; else store as a single-row object
+    if isinstance(data.csv_summary, pd.DataFrame) and not data.csv_summary.empty and len(data.csv_summary) == len(nmds_list):
+        # Assign lists per-row; ensure object dtype
+        data.csv_summary = data.csv_summary.copy()
+        data.csv_summary['nmds'] = pd.Series(list(nmds_list), dtype='object').values
+        data.csv_summary['ac_print'] = pd.Series(list(X_list), dtype='object').values
+    else:
+        # Store as single-row object columns
+        data.csv_summary = pd.DataFrame({'nmds': [nmds_list], 'ac_print': [X_list]})
     print('Huella acústica calculada exitosamente')
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
-    X,y,nmds = analyze.ac_print_by_days(df.md)  
-    data.csv_summary['nmds']=nmds.tolist()      
-    data.csv_summary['ac_print']=X.tolist()
+    X, _y, nmds = analyze.ac_print_by_days(df.md)
+    # Convert to native lists
+    nmds_list = nmds.tolist() if hasattr(nmds, 'tolist') else list(nmds)
+    X_list = X.tolist() if hasattr(X, 'tolist') else list(X)
+    # Assign per-row if lengths match, else store as a single-row object
+    if isinstance(data.csv_summary, pd.DataFrame) and not data.csv_summary.empty and len(data.csv_summary) == len(nmds_list):
+        data.csv_summary = data.csv_summary.copy()
+        data.csv_summary['nmds'] = pd.Series(list(nmds_list), dtype='object').values
+        data.csv_summary['ac_print'] = pd.Series(list(X_list), dtype='object').values
+    else:
+        data.csv_summary = pd.DataFrame({'nmds': [nmds_list], 'ac_print': [X_list]})
     print('Huella acústica por días calculada exitosamente')
 
 ###########################################
@@ -173,65 +192,6 @@ def save_wav():
     sound.write(filename, data.wavfs, data.wav, bit_depth=16)
     print('Archivo creado:')
     print(filename)
-
-def summary_compilation():
-    print('Seleccione la carpeta donde están los resúmenes (.csv) a compilar')
-    src_dir = askdirectory(title="Seleccione carpeta de resúmenes")
-    if not src_dir:
-        print('Operación cancelada: no se seleccionó carpeta')
-        return
-
-    # Buscar archivos de resumen generados por la app
-    patterns = [
-        os.path.join(src_dir, 'resumen_general_conjunto_grabadoras_*.csv')
-    ]
-    files = []
-    for pat in patterns:
-        files.extend(glob.glob(pat))
-    # Unicos y ordenados
-    files = sorted(list(dict.fromkeys(files)))
-
-    if not files:
-        print('No se encontraron archivos de resumen en la carpeta seleccionada')
-        return
-
-    print('Archivos encontrados:')
-    for f in files:
-        print(' - ' + os.path.basename(f))
-
-    # Leer y concatenar (reordenando columnas al orden canónico)
-    dfs = []
-    df_tmp = pd.read_csv(f, sep='\t', header=0, encoding='utf-8')
-    df_tmp['source_file'] = os.path.basename(f)
-    dfs.append(df_tmp)
-
-
-    if not dfs:
-        print('No se pudo leer ningún archivo válido')
-        return
-
-    # Orden de columnas final (canónico + source_file)
-    df_all = pd.concat(dfs, ignore_index=True, sort=False)
-
-    # Elegir carpeta de destino
-    print('Seleccione la carpeta de destino para guardar el archivo compilado')
-    dst_dir = askdirectory(title="Seleccione carpeta de destino")
-    if not dst_dir:
-        print('Operación cancelada: no se seleccionó carpeta de destino')
-        return
-
-    print('Escriba el nombre base del archivo compilado y presione Enter')
-    out_base = input().strip()
-    if not out_base:
-        out_base = 'resumen_compilado'
-
-    out_path = os.path.join(dst_dir, f'{out_base}.csv')
-    try:
-        df_all.to_csv(out_path, sep='\t', header=True, index=False, encoding='utf-8')
-        print('Archivo compilado creado:')
-        print(out_path)
-    except Exception as e:
-        print(f'Error guardando el archivo compilado: {e}')
     
 def save_csv():
     p.save = askdirectory(title="Seleccione carpeta para guardar el archivo")
@@ -296,15 +256,9 @@ root.minsize(root.winfo_reqwidth(), root.winfo_reqheight())
 root.resizable(True, True)
 # Make root grid cells expandable
 for r in (1, 2):
-    try:
-        root.grid_rowconfigure(r, weight=1)
-    except Exception:
-        pass
+    root.grid_rowconfigure(r, weight=1)
 for c in (1, 2):
-    try:
-        root.grid_columnconfigure(c, weight=1)
-    except Exception:
-        pass
+    root.grid_columnconfigure(c, weight=1)
 
 ##### Frame buttons###############################################
 frame_bf=ttk.Frame(root); frame_bf.grid(row=1,column=1)
@@ -356,8 +310,9 @@ frame_bsave=ttk.Frame(root); frame_bsave.grid(row=2,column=1)
 lbf=ttk.Label(frame_bsave,text="Guardar"); lbf.grid(row=0,column=1)
 b_save_wav=tk.Button(frame_bsave,text="Guardar archivo de audio (.wav)",padx=10,pady=5,fg="white",bg="#263D42", command=save_wav)
 b_save_wav.grid(row=1,column=1)
-b_comp=tk.Button(frame_bsave,text="Compilar resúmenes",padx=10,pady=5,fg="white",bg="#263D42", command=summary_compilation)
-b_comp.grid(row=2,column=1)
+# Botón de compilación de resúmenes deshabilitado si la función no está disponible
+# b_comp=tk.Button(frame_bsave,text="Compilar resúmenes",padx=10,pady=5,fg="white",bg="#263D42", command=summary_compilation)
+# b_comp.grid(row=2,column=1)
 b_save_csv=tk.Button(frame_bsave,text="Guardar datos (.csv)",padx=10,pady=5,fg="white",bg="#263D42", command=save_csv)
 b_save_csv.grid(row=3,column=1)
 ###################################################################

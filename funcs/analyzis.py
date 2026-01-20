@@ -373,13 +373,15 @@ class Analyzer:
         k = 0
         Ssites = np.zeros([65, 48, L_treatments])
         X = np.zeros([L_treatments, 65 * 48])
-        sites_ind = []
+        # Track mapping for each treatment index -> site/day
+        sites_ind = []  # numeric labels for plotting
+        meta_rows = []  # list of dicts: {'treatment_idx', 'site', 'day'}
         k = 0
         for site, data_site in group_site:
             print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
-            group_day = data_site.groupby(['day'])
-            Ld = len(group_day) 
-            for day, data_day in group_day:
+            group_day_site = data_site.groupby(['day'])
+            Ld = len(group_day_site)
+            for day, data_day in group_day_site:
                 print('dia: ' + str(day) + ' # ' + str(k + 1) + ' of ' + str(Ld) + ' days')
                 group_hour = data_day.groupby(['hour'])
                 Lh = len(group_hour)
@@ -411,18 +413,21 @@ class Analyzer:
                 fig_day, ax_day = plt.subplots()
                 ax_day.set_ylabel('Hour')
                 ax_day.set_xlabel('Frequency (kHz)')
-                ax_day.set_title('sitio: ' + str(site)+ 'día: '+str(day))
+                ax_day.set_title('sitio: ' + str(site) + ' día: ' + str(day))
                 ax_day.imshow(Sd, aspect='auto', origin='lower', extent=[tn[0], tn[len(tn) - 1], 0, fn[-1] / 1000])
+                ax_day.invert_yaxis()
                 fig_day.tight_layout()
-                fig_day.savefig(str(site)+'_'+str(day)+'.png', dpi=150, bbox_inches='tight')
+                fig_day.savefig(str(site) + '_' + str(day) + '.png', dpi=150, bbox_inches='tight')
                 plt.show(block=False)
                 plt.pause(0.05)
                 Ssites[:, :, k] = Sd
                 X[k, :] = np.ravel(Sd, order='C')
-                k = k + 1
+                # Record metadata for this treatment index
+                meta_rows.append({'treatment_idx': k, 'site': site, 'day': day})
                 sites_ind.append(k)
+                k = k + 1
                 print('progreso: ' + str(k) + ' días de ' + str(Ls))
-        
+
         dist_euclid = euclidean_distances(X)
         metric = True
         dist_matrix = dist_euclid
@@ -431,7 +436,7 @@ class Analyzer:
         pts = mds.fit_transform(dist_matrix)
 
         # Create a new figure for the MDS scatter (do not reuse figure 1)
-        fig2 = plt.figure(figsize=(15, 6))
+        fig2 = plt.figure(figsize=(10, 10))
         ax2 = fig2.add_subplot()
         plt.scatter(pts[:, 0], pts[:, 1])
         for x, ind in zip(X, range(pts.shape[0])):
@@ -441,13 +446,16 @@ class Analyzer:
             j = pts[ind, 1]
             ab = AnnotationBbox(imagebox, (i, j), frameon=False)
             ax2.add_artist(ab)
+            ax2.invert_yaxis()
         plt.show(block=False)
 
-        fig3 = plt.figure(figsize=(15, 6))
-        ax2 = fig3.add_subplot()
-        sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=sites_ind, palette='pastel')
+        fig3 = plt.figure(figsize=(10, 10))
+        ax3 = fig3.add_subplot()
+        sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=sites_ind, palette='pastel', ax=ax3)
         plt.title('Metric NMDS with Euclidean distances')
         plt.ylabel('NMDSy')
         plt.xlabel('NMDSx')
         plt.show(block=False)
-        return (X, y, pts)
+        # Build a metadata DataFrame for correlation downstream
+        df_meta = pd.DataFrame(meta_rows)
+        return (X, y, pts, df_meta)
