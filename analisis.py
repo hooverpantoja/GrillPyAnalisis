@@ -10,7 +10,6 @@ import pandas as pd
 import seaborn as sns
 from maad import sound, util, rois, features, spl
 import matplotlib.pyplot as plt
-from skimage.io import imshow
 try:
     from skimage.transform import downscale_local_mean
 except ImportError:

@@ -9,6 +9,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from maad import sound
+from tkinter.filedialog import askdirectory
+from pathlib import Path
 
 class Loader:
     def __init__(self):
@@ -119,3 +122,31 @@ class Loader:
         # boolean indexing to avoid pandas query with @ variables
         df_day = df[(df['date_fmt'] >= init) & (df['date_fmt'] < fin)]
         return df_day
+    
+class Sampler:
+    def __init__(self):
+        pass
+
+    def resample_dataset(self,df,ftarget=48000):
+        save_dir=askdirectory(title="Seleccione carpeta para guardar los archivos resampleados")   
+        print('Resampleando archivos...')
+        for i, row in df.iterrows():
+            s, fs = sound.load(row.route)
+            ftarget = 22050
+            s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
+            p=Path(row.route)
+            folder=p.parent.name
+            save_path = os.path.join(save_dir, folder)
+            try:
+                # Create the directory
+                os.mkdir(save_path)
+                print(f"Directory created: {save_path}")
+            except FileExistsError:
+                pass
+
+            file=p.name                             
+            filename= save_dir + '/' + str(folder) + '/' + str(file)
+            sound.write(filename, ftarget, s_res, bit_depth=16)
+            print('Archivo creado:')
+            print(filename)
+            print('progreso: ' + str(i) + ' de ' + str(len(df)))
