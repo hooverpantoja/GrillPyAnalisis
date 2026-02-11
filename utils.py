@@ -132,7 +132,6 @@ class Sampler:
         print('Resampleando archivos...')
         for i, row in df.iterrows():
             s, fs = sound.load(row.route)
-            ftarget = 22050
             s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
             p=Path(row.route)
             folder=p.parent.name
@@ -143,10 +142,13 @@ class Sampler:
                 print(f"Directory created: {save_path}")
             except FileExistsError:
                 pass
-
-            file=p.name                             
-            filename= save_dir + '/' + str(folder) + '/' + str(file)
-            sound.write(filename, ftarget, s_res, bit_depth=16)
-            print('Archivo creado:')
-            print(filename)
-            print('progreso: ' + str(i) + ' de ' + str(len(df)))
+                         
+            filename= save_dir + '/' + str(folder) + '/' + str(p.name)
+            try:
+                sound.write(filename, ftarget, s_res, bit_depth=16)
+                print('Archivo creado:')
+                print(filename)
+                print('progreso: ' + str(i) + ' de ' + str(len(df)))
+            except FileExistsError:
+                pass
+           
