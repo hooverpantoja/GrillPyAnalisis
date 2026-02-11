@@ -6,18 +6,20 @@ Created on Fri Apr 14 10:56:10 2023
 
 Read installation guide and readme file before execution 
 """
-from funcs import load_data
-from funcs import analyzis
-import obj
 import os
 import tkinter as tk
 from tkinter import ttk
-import glob
-import numpy as np
 from tkinter.filedialog import askopenfilename
 from tkinter.filedialog import askdirectory
+import glob
+import numpy as np
 from maad import sound #util
 import pandas as pd
+
+import gui
+from funcs import load_data
+from funcs import analyzis
+import obj
 
 # Init
 df=obj.metadata(pd.DataFrame(),'_','_','_')
@@ -247,105 +249,44 @@ def activ_spec_vars():
 #########                          GUI                     ###############
 ##########################################################################
 ##########################################################################  
-root=tk.Tk()
-cwd = os.getcwd()
-# Let the window adapt to the content instead of a fixed size
-# root.geometry('580x550')
-root.update_idletasks()
-root.minsize(root.winfo_reqwidth(), root.winfo_reqheight())
-root.resizable(True, True)
-# Make root grid cells expandable
-for r in (1, 2):
-    root.grid_rowconfigure(r, weight=1)
-for c in (1, 2):
-    root.grid_columnconfigure(c, weight=1)
+root_window=gui.Window()
 
 ##### Frame buttons###############################################
-frame_bf=ttk.Frame(root); frame_bf.grid(row=1,column=1)
-lbf=ttk.Label(frame_bf,text="Cargar archivos de audio"); lbf.grid(row=0,column=1)
+frame_buttons=root_window.insert_frame(1,1)
+frame_btns_load=root_window.insert_subframe(frame_buttons,4,1,"Carga de archivos",pady=10)
+root_window.insert_button(frame_btns_load,1,1,"Cargar archivo",read_file)
+root_window.insert_button(frame_btns_load,2,1,"Cargar una grabadora",get_data_files)
+root_window.insert_button(frame_btns_load,3,1,"Cargar conjunto de grabadoras",prep_recs)
+root_window.insert_button(frame_btns_load,4,1,"Seleccionar días",sel_days)
 
-#Folder of recorders
-b_read_recs=tk.Button(frame_bf,text="Cargar conjunto de grabadoras",padx=10,pady=5,fg="white",bg="#263D42", command=prep_recs)
-b_read_recs.grid(row=3,column=1)
+frame_btns_process=root_window.insert_subframe(frame_buttons,6,1,"Funciones procesamiento",pady=10)
+root_window.insert_button(frame_btns_process,1,1,"Espectrograma (archivo o un día)",one_day_spec)
+root_window.insert_button(frame_btns_process,2,1,"Espectrograma (conjunto de grabadoras)",rois_gui)
+root_window.insert_button(frame_btns_process,3,1,"Calcular índices por día",calculate_ind)
+root_window.insert_button(frame_btns_process,4,1,"Calcular SPL",calculate_spl)
+root_window.insert_button(frame_btns_process,5,1,"Huella acústica",calculate_acoustic_print)
+root_window.insert_button(frame_btns_process,6,1,"Huella acústica por días",calculate_acoustic_print_by_days)
 
-
-#Recorder
-b_read_folder=tk.Button(frame_bf,text="Cargar una grabadora",padx=10,pady=5,fg="white",bg="#263D42", command=get_data_files)
-b_read_folder.grid(row=2,column=1)
-
-#File
-b_read_fi=tk.Button(frame_bf,text="Cargar archivo",padx=10,pady=5,fg="white",bg="#263D42", command=read_file)
-b_read_fi.grid(row=1,column=1)
-
-b_days=tk.Button(frame_bf,text="Seleccionar días",padx=10,pady=5,fg="white",bg="#263D42", command=sel_days)
-b_days.grid(row=4,column=1)
-
-#Functions for set of recorders ##############################
-frame_bfi=ttk.Frame(frame_bf)
-frame_bfi.grid(row=6,column=1,pady=50)
-lbf=ttk.Label(frame_bfi,text="Funciones para conjuntos de datos"); lbf.grid(row=0,column=1)
-
-b_analyze_day=tk.Button(frame_bfi,text="Espectrograma (archivo o un día)",padx=10,pady=5,fg="white",bg="#263D42", command=one_day_spec)
-b_analyze_day.grid(row=3,column=1)
-
-b_read_fi=tk.Button(frame_bfi,text="Regiones de interés",padx=10,pady=5,fg="white",bg="#263D42", command=rois_gui)
-b_read_fi.grid(row=4,column=1)
-
-b_ind=tk.Button(frame_bfi,text="Calcular índices acústicos",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_ind)
-b_ind.grid(row=5,column=1)
-
-
-b_spl=tk.Button(frame_bfi,text="Calcular SPL",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_spl)
-b_spl.grid(row=6,column=1)
-
-b_ha=tk.Button(frame_bfi,text="Huella acústica",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print)
-b_ha.grid(row=7,column=1)
-
-b_had=tk.Button(frame_bfi,text="Huella acústica por días",padx=10,pady=5,fg="white",bg="#263D42", command=calculate_acoustic_print_by_days)
-b_had.grid(row=8,column=1)
-##################################################################
-
-##### Frame buttons save ##########################################
-frame_bsave=ttk.Frame(root); frame_bsave.grid(row=2,column=1)
-lbf=ttk.Label(frame_bsave,text="Guardar"); lbf.grid(row=0,column=1)
-b_save_wav=tk.Button(frame_bsave,text="Guardar archivo de audio (.wav)",padx=10,pady=5,fg="white",bg="#263D42", command=save_wav)
-b_save_wav.grid(row=1,column=1)
-# Botón de compilación de resúmenes deshabilitado si la función no está disponible
-# b_comp=tk.Button(frame_bsave,text="Compilar resúmenes",padx=10,pady=5,fg="white",bg="#263D42", command=summary_compilation)
-# b_comp.grid(row=2,column=1)
-b_save_csv=tk.Button(frame_bsave,text="Guardar datos (.csv)",padx=10,pady=5,fg="white",bg="#263D42", command=save_csv)
-b_save_csv.grid(row=3,column=1)
+frame_bsave=root_window.insert_subframe(frame_buttons,2,1,"Funciones guardado",pady=10)
+root_window.insert_button(frame_bsave,1,1,"Guardar archivo de audio (.wav)",save_wav)
+root_window.insert_button(frame_bsave,2,1,"Guardar datos (.csv)",save_csv)
 ###################################################################
 
 ##### Frame Variables  ###########################################
-frame_var=ttk.Frame(root); frame_var.grid(row=1,column=2)
-##### Recorder
-l0 = tk.Label(frame_var, text="Formato de grabadora"); l0.grid(row=1,column=1)
-cbox = ttk.Combobox(frame_var,values=['Audiomoth: aammdd_hhmmss','SongMeter: nombre_aammdd_hhmmss','Snap: nombre_aammddThhmmss'],width=29,state='readonly')
-cbox.grid(row=1,column=2); cbox.set('Seleccione un formato de grabadora')
-## Custom variables check
-lc = tk.Label(frame_var, text="Usar variables personalizadas"); lc.grid(row=2,column=1)
-ch_rec=tk.IntVar();ch1 = tk.Checkbutton(frame_var, command=activ_spec_vars,variable=ch_rec)
-ch1.grid(row=2,column=2)
-## Nivel dB mínimo
-ldb = tk.Label(frame_var, text="Nivel dB mínimo"); ldb.grid(row=3,column=1)
-db = tk.Entry(frame_var,bd=5,state='disabled'); db.grid(row=3,column=2)
-l1 = tk.Label(frame_var, text="Fmin (Hz)"); l1.grid(row=4,column=1)
-fmine = tk.Entry(frame_var,bd=5,state='disabled'); fmine.grid(row=4,column=2)
-# Fmax
-l2 = tk.Label(frame_var, text="Fmax (Hz)"); l2.grid(row=5,column=1)
-fmaxe = tk.Entry(frame_var,bd=5,state='disabled'); fmaxe.grid(row=5,column=2)
-## Time seg
-l3= tk.Label(frame_var, text="Segmentos de tiempo"); l3.grid(row=6,column=1)
-tlene = tk.Entry(frame_var,bd=5,state='disabled'); tlene.grid(row=6,column=2)
-## bin_std
-l= tk.Label(frame_var, text="bin_std"); l.grid(row=7,column=1)
-bstd = tk.Entry(frame_var,bd=5,state='disabled'); bstd.grid(row=7,column=2)
-## bin_per
-l= tk.Label(frame_var, text="bin_per"); l.grid(row=8,column=1)
-bp = tk.Entry(frame_var,bd=5,state='disabled'); bp.grid(row=8,column=2); db.insert(0, "0.25")
+frame_settings=root_window.insert_frame(1,2)
+frame_recorder=root_window.insert_subframe(frame_settings,1,1,"Seleccion de grabadora",pady=10)
+cbox=root_window.insert_combobox(frame_recorder,1,1,['Audiomoth: aammdd_hhmmss','SongMeter: nombre_aammdd_hhmmss'],
+                    width=40,state='readonly', default='Seleccione un formato de grabadora')
+frame_var=root_window.insert_subframe(frame_settings,2,1,pady=10)
+ch1, ch_rec=root_window.insert_checkbutton(frame_var,1,1,"Variables personalizadas",command=activ_spec_vars)
+db=root_window.insert_entry(frame_var,3,1,state='disabled', text="Nivel dB mínimo")
+fmine=root_window.insert_entry(frame_var,4,1,state='disabled', text="Fmin (Hz)")
+fmaxe=root_window.insert_entry(frame_var,5,1,state='disabled', text="Fmax (Hz)")
+tlene=root_window.insert_entry(frame_var,6,1,state='disabled', text="Segmentos de tiempo")
+bstd=root_window.insert_entry(frame_var,7,1,state='disabled', text="bin_std")
+bp=root_window.insert_entry(frame_var,8,1,state='disabled', text="bin_per")
 #################################################################
 
 
 if __name__ == "__main__":
-    root.mainloop()
+    root_window.window.mainloop()
