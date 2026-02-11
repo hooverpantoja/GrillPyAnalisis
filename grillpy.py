@@ -16,8 +16,7 @@ import pandas as pd
 
 import gui
 import analisis
-from funcs import load_data
-
+import utils
 import obj
 
 # Init
@@ -29,7 +28,8 @@ flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
 analyser = analisis.Analyser()
-loader = load_data.Loader()
+loader = utils.Loader()
+sampler = utils.Sampler()
 
 ###########################################
 ### Load data #############################
@@ -93,7 +93,9 @@ def sel_days():
     else:
         print('Días seleccionados y DataFrame actualizado')
         df.md=[]; df.md=df_new
-                
+
+def resample(): sampler.resample_dataset(df.md)       
+        
 ###########################################
 ### Functions #############################
 ###########################################
@@ -256,7 +258,8 @@ frame_btns_load=root_window.insert_subframe(frame_buttons,4,1,"Carga de archivos
 root_window.insert_button(frame_btns_load,1,1,"Cargar archivo",read_file)
 root_window.insert_button(frame_btns_load,2,1,"Cargar una grabadora",get_data_files)
 root_window.insert_button(frame_btns_load,3,1,"Cargar conjunto de grabadoras",prep_recs)
-root_window.insert_button(frame_btns_load,4,1,"Seleccionar días",sel_days)
+root_window.insert_button(frame_btns_load,4,1,"Resamplear",resample)
+root_window.insert_button(frame_btns_load,5,1,"Seleccionar días",sel_days)
 
 frame_btns_process=root_window.insert_subframe(frame_buttons,6,1,"Funciones procesamiento",pady=10)
 root_window.insert_button(frame_btns_process,1,1,"Espectrograma (archivo o un día)",one_day_spec)
@@ -269,7 +272,6 @@ root_window.insert_button(frame_btns_process,6,1,"Huella acústica por días",ca
 frame_bsave=root_window.insert_subframe(frame_buttons,2,1,"Funciones guardado",pady=10)
 root_window.insert_button(frame_bsave,1,1,"Guardar archivo de audio (.wav)",save_wav)
 root_window.insert_button(frame_bsave,2,1,"Guardar datos (.csv)",save_csv)
-###################################################################
 
 ##### Frame Variables  ###########################################
 frame_settings=root_window.insert_frame(1,2)
@@ -284,8 +286,6 @@ fmaxe=root_window.insert_entry(frame_var,5,1,state='disabled', text="Fmax (Hz)")
 tlene=root_window.insert_entry(frame_var,6,1,state='disabled', text="Segmentos de tiempo")
 bstd=root_window.insert_entry(frame_var,7,1,state='disabled', text="bin_std")
 bp=root_window.insert_entry(frame_var,8,1,state='disabled', text="bin_per")
-#################################################################
-
 
 if __name__ == "__main__":
     root_window.window.mainloop()
