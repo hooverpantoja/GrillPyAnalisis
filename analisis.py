@@ -21,7 +21,7 @@ from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib import cm
 
 
-class Analyzer:
+class Analyser:
     def __init__(self):
         pass
 
@@ -411,11 +411,10 @@ class Analyzer:
                 Sd = downscale_local_mean(Sm, (8, 1))
                 # Create a dedicated figure per day to avoid reuse
                 fig_day, ax_day = plt.subplots()
-                ax_day.set_ylabel('Hour')
-                ax_day.set_xlabel('Frequency (kHz)')
-                ax_day.set_title('sitio: ' + str(site) + ' día: ' + str(day))
                 ax_day.imshow(Sd, aspect='auto', origin='lower', extent=[tn[0], tn[len(tn) - 1], 0, fn[-1] / 1000])
-                ax_day.invert_yaxis()
+                ax_day.set_xlabel('Hora')
+                ax_day.set_ylabel('Frequency (kHz)')
+                ax_day.set_title('sitio: ' + str(site) + ' día: ' + str(day))
                 fig_day.tight_layout()
                 fig_day.savefig(str(site) + '_' + str(day) + '.png', dpi=150, bbox_inches='tight')
                 plt.show(block=False)

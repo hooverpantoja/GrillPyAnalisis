@@ -7,8 +7,6 @@ Created on Fri Apr 14 10:56:10 2023
 Read installation guide and readme file before execution 
 """
 import os
-import tkinter as tk
-from tkinter import ttk
 from tkinter.filedialog import askopenfilename
 from tkinter.filedialog import askdirectory
 import glob
@@ -17,8 +15,9 @@ from maad import sound #util
 import pandas as pd
 
 import gui
+import analisis
 from funcs import load_data
-from funcs import analyzis
+
 import obj
 
 # Init
@@ -29,7 +28,7 @@ data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame(),[])
 flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
-analyze = analyzis.Analyzer()
+analyser = analisis.Analyser()
 loader = load_data.Loader()
 
 ###########################################
@@ -108,7 +107,7 @@ def rois_gui():
                                                                fmaxe,'_',data.wavfs,db,bstd,bp)
             #analyzis.rois_spec(data,w.flims,ch_rec,w.db)
             print('Inicio de cálculo de regiones (ROIs)')
-            _rois, _im_rois = analyze.rois_spec(data,w.flims,ch_rec,w.db,w.bstd,w.bper) 
+            _rois, _im_rois = analyser.rois_spec(data,w.flims,ch_rec,w.db,w.bstd,w.bper) 
             
         else:
             print('Cargue el audio primero')
@@ -123,11 +122,11 @@ def one_day_spec():
     if flag.load=='file':
         w.flims, _ ,w.db, _ , _ , _ = obj.get_info_widgets(ch_rec,fmine,
                                                            fmaxe,'_',data.wavfs,db,'_','_')
-        analyze.shortwave(data.wav,data.wavfs,w.flims,w.db) 
+        analyser.shortwave(data.wav,data.wavfs,w.flims,w.db) 
 
     elif flag.load=='folder':
         w.flims,w.samp_len,w.db, _ , _,ch =obj.get_info_widgets(ch_rec,fmine,fmaxe,tlene,df.fs,db,'_','_')
-        data.wav,data.wavfs,S.Sxx,S.tn,S.fn=analyze.longwave(df.md,p.load,w.samp_len,w.flims,w.db,ch)
+        data.wav,data.wavfs,S.Sxx,S.tn,S.fn=analyser.longwave(df.md,p.load,w.samp_len,w.flims,w.db,ch)
         print('Plot finished')
 
     elif flag.load=='set':
@@ -136,13 +135,13 @@ def one_day_spec():
 ### For one recorder or set of recorders #############          
 def calculate_ind():         
     print('Calculating indices')       
-    X = analyze.ind_per_day(df.md)
+    X = analyser.ind_per_day(df.md)
     print(str(X))
         
 def calculate_spl():     
     print('Calculando SPL')
-    df_spl, df_sum = analyze.spl_batch(df.md)
-    analyze.plot_spl(df_spl)
+    df_spl, df_sum = analyser.spl_batch(df.md)
+    analyser.plot_spl(df_spl)
     df.md=[]; df.md=df_spl
     data.csv_data=df_spl 
     data.csv_summary=df_sum
@@ -150,7 +149,7 @@ def calculate_spl():
     
     
 def calculate_acoustic_print():    
-    X, _y, nmds, matrixAcousticPrint = analyze.ac_print(df.md)
+    X, _y, nmds, matrixAcousticPrint = analyser.ac_print(df.md)
     # Convert to native lists
     nmds_list = nmds.tolist() if hasattr(nmds, 'tolist') else list(nmds)
     X_list = X.tolist() if hasattr(X, 'tolist') else list(X)
@@ -169,7 +168,7 @@ def calculate_acoustic_print():
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
-    X, _y, nmds = analyze.ac_print_by_days(df.md)
+    X, _y, nmds = analyser.ac_print_by_days(df.md)
     # Convert to native lists
     nmds_list = nmds.tolist() if hasattr(nmds, 'tolist') else list(nmds)
     X_list = X.tolist() if hasattr(X, 'tolist') else list(X)
