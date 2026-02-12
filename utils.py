@@ -5,13 +5,14 @@ Created on Wed Apr 26 11:07:09 2023
 @author: Esteban
 """
 import os
+from tkinter.filedialog import askdirectory
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from maad import sound
-from tkinter.filedialog import askdirectory
-from pathlib import Path
+from scipy.io import wavfile
 
 class Loader:
     def __init__(self):
@@ -131,13 +132,17 @@ class Sampler:
         save_dir=askdirectory(title="Seleccione carpeta para guardar los archivos resampleados")   
         print('Resampleando archivos...')
         for i, row in df.iterrows():
-            s, fs = sound.load(row.route)
-            s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
-            p=Path(row.route)
-            folder=p.parent.name
-            save_path = os.path.join(save_dir, folder)
-            filename= save_dir + '/' + str(folder) + '/' + str(p.name)
-
+            # s, fs = sound.load(row.route)
+            fs, s = wavfile.read(row.route)
+            try :
+                s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
+                p=Path(row.route)
+                folder=p.parent.name
+                save_path = os.path.join(save_dir, folder)
+                filename= save_dir + '/' + str(folder) + '/' + str(p.name)
+            except ValueError:
+                print('Error resampling file: ' + row.route + ' with fs: ' + str(fs))
+           
             try:
                 # Create the directory
                 os.mkdir(save_path)
@@ -152,3 +157,4 @@ class Sampler:
                 print('progreso: ' + str(i) + ' de ' + str(len(df)))
             except FileExistsError:
                 print("File already exists")
+        
