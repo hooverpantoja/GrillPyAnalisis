@@ -154,7 +154,8 @@ class Sampler:
                 sound.write(filename, ftarget, s_res, bit_depth=16)
                 print('Archivo creado:')
                 print(filename)
-                print('progreso: ' + str(i) + ' de ' + str(len(df)))
             except FileExistsError:
                 print("File already exists")
+
+            print('progreso: ' + str(i) + ' de ' + str(len(df)))
         
