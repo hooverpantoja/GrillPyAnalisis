@@ -134,15 +134,20 @@ class Sampler:
         for i, row in df.iterrows():
             try :
                 fs, s = wavfile.read(row.route)
+                print('Archivo cargado: ' + str(row.route))
+        
             except ValueError:
-                print('Error resampling file: ' + row.route + ' with fs: ' + str(fs))
+                print('Error resampling file: ' + str(row.route))
 
             if fs != ftarget:
                 s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
-                p=Path(row.route)
-                folder=p.parent.name
-                save_path = os.path.join(save_dir, folder)
-                filename= save_dir + '/' + str(folder) + '/' + str(p.name)
+            else:
+                s_res = s
+
+            p=Path(row.route)
+            folder=p.parent.name
+            save_path = os.path.join(save_dir, folder)
+            filename= save_dir + '/' + str(folder) + '/' + str(p.name)
            
             try:
                 # Create the directory
@@ -152,7 +157,7 @@ class Sampler:
                 print("Folder already exists")
                          
             try:
-                sound.write(filename, ftarget, s_res, bit_depth=16)
+                wavfile.write(filename, ftarget, s_res.astype(np.int16)) # Save the resampled audio file format as 16-bit PCM
                 print('Archivo creado:')
                 print(filename)
             except FileExistsError:
