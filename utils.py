@@ -132,16 +132,17 @@ class Sampler:
         save_dir=askdirectory(title="Seleccione carpeta para guardar los archivos resampleados")   
         print('Resampleando archivos...')
         for i, row in df.iterrows():
-            # s, fs = sound.load(row.route)
-            fs, s = wavfile.read(row.route)
             try :
+                fs, s = wavfile.read(row.route)
+            except ValueError:
+                print('Error resampling file: ' + row.route + ' with fs: ' + str(fs))
+
+            if fs != ftarget:
                 s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
                 p=Path(row.route)
                 folder=p.parent.name
                 save_path = os.path.join(save_dir, folder)
                 filename= save_dir + '/' + str(folder) + '/' + str(p.name)
-            except ValueError:
-                print('Error resampling file: ' + row.route + ' with fs: ' + str(fs))
            
             try:
                 # Create the directory
