@@ -136,19 +136,19 @@ class Sampler:
             p=Path(row.route)
             folder=p.parent.name
             save_path = os.path.join(save_dir, folder)
+            filename= save_dir + '/' + str(folder) + '/' + str(p.name)
+
             try:
                 # Create the directory
                 os.mkdir(save_path)
                 print(f"Directory created: {save_path}")
             except FileExistsError:
-                pass
+                print("Folder already exists")
                          
-            filename= save_dir + '/' + str(folder) + '/' + str(p.name)
             try:
                 sound.write(filename, ftarget, s_res, bit_depth=16)
                 print('Archivo creado:')
                 print(filename)
                 print('progreso: ' + str(i) + ' de ' + str(len(df)))
             except FileExistsError:
-                pass
-           
+                print("File already exists")
