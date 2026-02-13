@@ -6,6 +6,8 @@ Created on Wed Apr 26 11:07:09 2023
 """
 import os
 from tkinter.filedialog import askdirectory
+import tkinter as tk
+from tkinter import ttk
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
@@ -14,12 +16,14 @@ import seaborn as sns
 from resampy import resample
 from scipy.io import wavfile
 
+
 class Loader:
     def __init__(self):
         pass
 
     @staticmethod
     def find(s, ch):
+        """Find all indices of character 'ch' in string 's'."""
         return [i for i, ltr in enumerate(s) if ltr == ch]
 
     @classmethod
@@ -36,7 +40,9 @@ class Loader:
             if recorder=='Grillo: nombre_aammdd_hhmmss':
                 ind=cls.find(file,'_')
                 ind.append(file.find('.'))
-                d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=file[0:ind[0]]
+                d.loc[i,'route']=flist[i]
+                d.loc[i,'file']=file
+                d.loc[i,'site']=file[0:ind[0]]
                 d.loc[i,'date_fmt']=pd.to_datetime(file[ind[0]+1:ind[1]]+' '+file[ind[1]+1:ind[2]], format='%Y%m%d %H%M%S')
                 d.loc[i,'day']=file[ind[0]+1:ind[1]]
                 d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
@@ -52,7 +58,9 @@ class Loader:
                     
                 ind=cls.find(file,'_')
                 ind.append(file.find('.'))
-                d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=site
+                d.loc[i,'route']=flist[i]
+                d.loc[i,'file']=file
+                d.loc[i,'site']=site
                 d.loc[i,'date_fmt']=pd.to_datetime(file[0:ind[0]]+' '+file[ind[0]+1:ind[1]], format='%Y%m%d %H%M%S')
                 d.loc[i,'day']=file[0:ind[0]]
                 d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
@@ -118,6 +126,56 @@ class Loader:
         # boolean indexing to avoid pandas query with @ variables
         df_day = df[(df['date_fmt'] >= init) & (df['date_fmt'] < fin)]
         return df_day
+    
+    @classmethod
+    def show_dataframe(cls, df_to_show: pd.DataFrame, title: str = "DataFrame",root_window=None):
+        """Open a new Tkinter window with a scrollable table (ttk.Treeview) to display a DataFrame.
+
+        - Shows columns as headers
+        - Adds vertical and horizontal scrollbars
+        - Adapts column widths based on header length
+        """
+        if df_to_show is None or (isinstance(df_to_show, pd.DataFrame) and df_to_show.empty):
+            print('No hay metadatos para mostrar')
+            return
+
+        top = tk.Toplevel(root_window.window if root_window else None)
+        top.title(title)
+        top.geometry("900x500")
+
+        container = ttk.Frame(top)
+        container.pack(fill='both', expand=True)
+
+        # Create Treeview
+        cols = list(df_to_show.columns)
+        tree = ttk.Treeview(container, columns=cols, show='headings')
+
+        # Scrollbars
+        vsb = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
+        hsb = ttk.Scrollbar(container, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        # Grid placement
+        tree.grid(row=0, column=0, sticky='nsew')
+        vsb.grid(row=0, column=1, sticky='ns')
+        hsb.grid(row=1, column=0, sticky='ew')
+
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        # Configure headings and column widths
+        for c in cols:
+            tree.heading(c, text=str(c))
+            # Set a reasonable default width based on header length
+            width = max(100, min(300, 10 * len(str(c))))
+            tree.column(c, width=width, stretch=True, anchor='w')
+
+        # Insert data rows
+        for _, row in df_to_show.iterrows():
+            values = [row[c] for c in cols]
+            # Convert complex objects to string for display
+            values = [str(v) if not (isinstance(v, (int, float, str)) or pd.isna(v)) else ("" if pd.isna(v) else v) for v in values]
+            tree.insert('', 'end', values=values)
     
 class Sampler:
     """Class for resampling audio files in the dataset."""

@@ -9,6 +9,8 @@ Read installation guide and readme file before execution
 import os
 from tkinter.filedialog import askopenfilename
 from tkinter.filedialog import askdirectory
+import tkinter as tk
+from tkinter import ttk
 import glob
 import numpy as np
 from maad import sound #util
@@ -183,6 +185,13 @@ def calculate_acoustic_print_by_days():
         data.csv_summary = pd.DataFrame({'nmds': [nmds_list], 'ac_print': [X_list]})
     print('Huella acústica por días calculada exitosamente')
 
+def show_metadata_df():
+        """Show the current metadata DataFrame (df.md) in a new window."""
+        try:
+            loader.show_dataframe(df.md, title="Metadatos (df.md)")
+        except Exception as e:
+            print(f"Error al mostrar DataFrame: {e}")
+
 ###########################################
 ### Guardar datos #########################
 ###########################################
@@ -254,14 +263,17 @@ root_window=gui.Window()
 
 ##### Frame buttons###############################################
 frame_buttons=root_window.insert_frame(1,1)
-frame_btns_load=root_window.insert_subframe(frame_buttons,4,1,"Carga de archivos",pady=10)
+frame_btns_load=root_window.insert_subframe(frame_buttons,1,1,"Carga de archivos",pady=5)
 root_window.insert_button(frame_btns_load,1,1,"Cargar archivo",read_file)
 root_window.insert_button(frame_btns_load,2,1,"Cargar una grabadora",get_data_files)
 root_window.insert_button(frame_btns_load,3,1,"Cargar conjunto de grabadoras",prep_recs)
-root_window.insert_button(frame_btns_load,4,1,"Resamplear",resample)
-root_window.insert_button(frame_btns_load,5,1,"Seleccionar días",sel_days)
 
-frame_btns_process=root_window.insert_subframe(frame_buttons,6,1,"Funciones procesamiento",pady=10)
+frame_btns_preprocess=root_window.insert_subframe(frame_buttons,2,1,"Pre-procesamiento",pady=5)   
+root_window.insert_button(frame_btns_preprocess,1,1,"Resamplear",resample)
+root_window.insert_button(frame_btns_preprocess,2,1,"Seleccionar días",sel_days)
+root_window.insert_button(frame_btns_preprocess,3,1,"Ver metadatos",show_metadata_df)
+
+frame_btns_process=root_window.insert_subframe(frame_buttons,3,1,"Procesamiento",pady=5)
 root_window.insert_button(frame_btns_process,1,1,"Espectrograma (archivo o un día)",one_day_spec)
 root_window.insert_button(frame_btns_process,2,1,"Espectrograma (conjunto de grabadoras)",rois_gui)
 root_window.insert_button(frame_btns_process,3,1,"Calcular índices por día",calculate_ind)
@@ -269,7 +281,7 @@ root_window.insert_button(frame_btns_process,4,1,"Calcular SPL",calculate_spl)
 root_window.insert_button(frame_btns_process,5,1,"Huella acústica",calculate_acoustic_print)
 root_window.insert_button(frame_btns_process,6,1,"Huella acústica por días",calculate_acoustic_print_by_days)
 
-frame_bsave=root_window.insert_subframe(frame_buttons,2,1,"Funciones guardado",pady=10)
+frame_bsave=root_window.insert_subframe(frame_buttons,4,1,"Guardado",pady=5)
 root_window.insert_button(frame_bsave,1,1,"Guardar archivo de audio (.wav)",save_wav)
 root_window.insert_button(frame_bsave,2,1,"Guardar datos (.csv)",save_csv)
 
