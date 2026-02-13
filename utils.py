@@ -24,6 +24,7 @@ class Loader:
 
     @classmethod
     def create_df(cls, path, flist, recorder, fload):
+        """Create a DataFrame with metadata extracted from audio file names."""
         d=pd.DataFrame()
         L=str(len(flist))
         for i,j in enumerate(flist):
@@ -32,7 +33,7 @@ class Loader:
             else:
                 file = os.path.basename(j)
                 
-            if recorder=='SongMeter: nombre_aammdd_hhmmss':
+            if recorder=='Grillo: nombre_aammdd_hhmmss':
                 ind=cls.find(file,'_')
                 ind.append(file.find('.'))
                 d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=file[0:ind[0]]
@@ -55,15 +56,6 @@ class Loader:
                 d.loc[i,'date_fmt']=pd.to_datetime(file[0:ind[0]]+' '+file[ind[0]+1:ind[1]], format='%Y%m%d %H%M%S')
                 d.loc[i,'day']=file[0:ind[0]]
                 d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
-                
-            elif recorder=='Snap: name_aammddThhmmss':
-                ind_=cls.find(file,'_')
-                indT=cls.find(file,'T')
-                indp=cls.find(file,'.')
-                d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=file[ind_[0]+1:ind_[1]]
-                d.loc[i,'date_fmt']=pd.to_datetime(file[ind_[1]+1:indT[0]]+' '+file[indT[0]+1:indp[0]], format='%Y%m%d %H%M%S')
-                d.loc[i,'day']=file[ind_[1]+1:indT[0]]
-                d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
 
             if fload == 'file': # Break for cycle so flist is assigned to route in the first iteration. This is only necessary for files
                 d.loc[0,'route']=flist
@@ -74,6 +66,7 @@ class Loader:
 
     @classmethod
     def plot_folder_stats(cls, df):
+        """Plot the distribution of recordings by day and hour."""
         days, indd = np.unique(df.day, return_inverse=True)   
         hour=df.hour
         hours, indh = np.unique(hour, return_inverse=True)   
@@ -94,6 +87,7 @@ class Loader:
         
     @classmethod
     def plot_set_recorders(cls, df):
+        """Plot the distribution of recordings by site and day."""
         d = df.groupby('site')
         dc = pd.DataFrame(d.day.value_counts())
         dc.rename(columns={'day': 'count'}, inplace=True)
@@ -117,6 +111,7 @@ class Loader:
 
     @classmethod
     def update_df(cls, df, txt):
+        """Update the DataFrame to include only recordings within a specified date range."""
         indsep = cls.find(txt, ':')
         init = pd.to_datetime(txt[0:indsep[0]], format='%Y%m%d')
         fin = pd.to_datetime(txt[indsep[0]+1:len(txt)], format='%Y%m%d')
@@ -125,10 +120,12 @@ class Loader:
         return df_day
     
 class Sampler:
+    """Class for resampling audio files in the dataset."""
     def __init__(self):
         pass
 
     def resample_dataset(self,df,ftarget=48000):
+        """Resample audio files in the dataset to a target sampling frequency."""
         save_dir=askdirectory(title="Seleccione carpeta para guardar los archivos resampleados")   
         print('Resampleando archivos...')
         for i, row in df.iterrows():

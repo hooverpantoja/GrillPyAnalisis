@@ -276,7 +276,7 @@ root_window.insert_button(frame_bsave,2,1,"Guardar datos (.csv)",save_csv)
 ##### Frame Variables  ###########################################
 frame_settings=root_window.insert_frame(1,2)
 frame_recorder=root_window.insert_subframe(frame_settings,1,1,"Seleccion de grabadora",pady=10)
-cbox=root_window.insert_combobox(frame_recorder,1,1,['Audiomoth: aammdd_hhmmss','SongMeter: nombre_aammdd_hhmmss'],
+cbox=root_window.insert_combobox(frame_recorder,1,1,['Audiomoth: aammdd_hhmmss','Grillo: aammdd_hhmmss'],
                     width=40,state='readonly', default='Seleccione un formato de grabadora')
 frame_var=root_window.insert_subframe(frame_settings,2,1,pady=10)
 ch1, ch_rec=root_window.insert_checkbutton(frame_var,1,1,"Variables personalizadas",command=activ_spec_vars)
