@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from maad import sound
+from resampy import resample
 from scipy.io import wavfile
 
 class Loader:
@@ -132,36 +132,35 @@ class Sampler:
         save_dir=askdirectory(title="Seleccione carpeta para guardar los archivos resampleados")   
         print('Resampleando archivos...')
         for i, row in df.iterrows():
-            try :
-                fs, s = wavfile.read(row.route)
-                print('Archivo cargado: ' + str(row.route))
-        
-            except ValueError:
-                print('Error resampling file: ' + str(row.route))
-
-            if fs != ftarget:
-                s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
-            else:
-                s_res = s
-
             p=Path(row.route)
             folder=p.parent.name
             save_path = os.path.join(save_dir, folder)
             filename= save_dir + '/' + str(folder) + '/' + str(p.name)
-           
-            try:
-                # Create the directory
-                os.mkdir(save_path)
-                print(f"Directory created: {save_path}")
-            except FileExistsError:
-                print("Folder already exists")
-                         
-            try:
+            if os.path.isfile(filename):
+                print("Archivo ya existe")  
+            else:
+            
+                try :
+                    fs, s = wavfile.read(row.route)
+                    print('Archivo cargado: ' + str(row.route))
+                except ValueError:
+                    print('Error resampling file: ' + str(row.route))
+
+                if fs != ftarget:
+                    s_res = resample(s, fs, ftarget, res_type='kaiser_fast')
+                else:
+                    s_res = s
+
+                try:
+                    # Create the directory
+                    os.mkdir(save_path)
+                    print(f"Directory created: {save_path}")
+                except FileExistsError:
+                    print("Carpeta ya existe")
+
                 wavfile.write(filename, ftarget, s_res.astype(np.int16)) # Save the resampled audio file format as 16-bit PCM
                 print('Archivo creado:')
                 print(filename)
-            except FileExistsError:
-                print("File already exists")
 
             print('progreso: ' + str(i) + ' de ' + str(len(df)))
         
