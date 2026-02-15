@@ -71,7 +71,7 @@ class Loader:
             
             print('progress: ' + str(i+1) +' of ' + L)    
         return(d)  
-
+    
     @classmethod
     def plot_folder_stats(cls, df):
         """Plot the distribution of recordings by day and hour."""
@@ -92,7 +92,7 @@ class Loader:
         plt.ylabel('Hour')
         plt.xlabel('File count')
         plt.show()
-        
+
     @classmethod
     def plot_set_recorders(cls, df):
         """Plot the distribution of recordings by site and day."""
@@ -117,13 +117,22 @@ class Loader:
         df_new = df_summary.reset_index().rename(columns={'index': 'site'})
         return df_new
 
+class DataFrameEditor:
+    """Class for editing and displaying DataFrames."""
+    def __init__(self):
+        pass
+
     @classmethod
     def update_df(cls, df, txt):
-        """Update the DataFrame to include only recordings within a specified date range."""
-        indsep = cls.find(txt, ':')
-        init = pd.to_datetime(txt[0:indsep[0]], format='%Y%m%d')
-        fin = pd.to_datetime(txt[indsep[0]+1:len(txt)], format='%Y%m%d')
-        # boolean indexing to avoid pandas query with @ variables
+        """Update the DataFrame to include only recordings within a specified date range.
+
+        Expects input like 'YYYYMMDD:YYYYMMDD'.
+        """
+        parts = str(txt).split(':')
+        if len(parts) != 2:
+            return pd.DataFrame()
+        init = pd.to_datetime(parts[0], format='%Y%m%d')
+        fin = pd.to_datetime(parts[1], format='%Y%m%d')
         df_day = df[(df['date_fmt'] >= init) & (df['date_fmt'] < fin)]
         return df_day
     
@@ -176,6 +185,169 @@ class Loader:
             # Convert complex objects to string for display
             values = [str(v) if not (isinstance(v, (int, float, str)) or pd.isna(v)) else ("" if pd.isna(v) else v) for v in values]
             tree.insert('', 'end', values=values)
+
+    @classmethod
+    def select_days_gui(cls, df_ref: pd.DataFrame, root_window=None) -> pd.DataFrame:
+        """Open a simple GUI to select start/end days and return a filtered DataFrame.
+
+        - Lists unique values from df_ref['day'] in two dropdowns (start/end)
+        - Returns the filtered DataFrame using update_df(start:end)
+        - Returns an empty DataFrame if cancelled or invalid
+        """
+        if not isinstance(df_ref, pd.DataFrame) or df_ref.empty or 'day' not in df_ref.columns:
+            print('No hay metadatos cargados o falta la columna "day"')
+            return pd.DataFrame()
+
+        # Gather unique days, keep as strings, sorted
+        try:
+            day_values = pd.unique(df_ref['day'])
+        except Exception:
+            day_values = []
+        day_values = [str(d) for d in day_values if pd.notna(d)]
+        if not day_values:
+            print('No hay valores de días disponibles')
+            return pd.DataFrame()
+        day_values = sorted(day_values)
+
+        parent = root_window.window if root_window and hasattr(root_window, 'window') else None
+        top = tk.Toplevel(parent)
+        top.title('Seleccionar días a analizar')
+        top.geometry('420x220')
+
+        # Start day selector
+        tk.Label(top, text='Día inicial (YYYYMMDD):').pack(padx=10, pady=(12, 2), anchor='w')
+        start_var = tk.StringVar(value=day_values[0])
+        start_combo = ttk.Combobox(top, textvariable=start_var, values=day_values, state='readonly')
+        start_combo.pack(fill='x', padx=10, pady=(0, 8))
+
+        # End day selector
+        tk.Label(top, text='Día final (YYYYMMDD):').pack(padx=10, pady=(4, 2), anchor='w')
+        end_var = tk.StringVar(value=day_values[-1])
+        end_combo = ttk.Combobox(top, textvariable=end_var, values=day_values, state='readonly')
+        end_combo.pack(fill='x', padx=10, pady=(0, 12))
+
+        # Result holder
+        result = {'df': None}
+
+        def on_save():
+            start = start_var.get().strip()
+            end = end_var.get().strip()
+            if not start or not end:
+                print('Seleccione ambos días')
+                return
+            # Validate ordering using lexicographic since YYYYMMDD
+            if start > end:
+                print('El día inicial debe ser menor o igual al final')
+                return
+            try:
+                df_new = cls.update_df(df_ref, f"{start}:{end}")
+            except Exception as e:
+                print(f'Error al filtrar por días: {e}')
+                df_new = pd.DataFrame()
+            result['df'] = df_new
+            top.destroy()
+
+        def on_cancel():
+            top.destroy()
+
+        btns = tk.Frame(top)
+        btns.pack(fill='x', padx=10, pady=(0, 10))
+        tk.Button(btns, text='Guardar', command=on_save).pack(side='left')
+        tk.Button(btns, text='Cancelar', command=on_cancel).pack(side='left', padx=8)
+
+        # Block until window closes so we can return synchronously
+        top.wait_window()
+        return result['df'] if isinstance(result.get('df'), pd.DataFrame) else pd.DataFrame()
+
+    @classmethod
+    def assign_groups_gui(cls, df_ref: pd.DataFrame, root_window=None):
+        """GUI to assign a group label to each recorder and add 'group' to df_ref.
+
+        Steps:
+        - Select the recorder-identifying column from a dropdown.
+        - Enter a group label for each unique recorder value.
+        - Click Guardar to write df_ref['group'].
+        """
+        if not isinstance(df_ref, pd.DataFrame) or df_ref.empty:
+            print('No hay metadatos cargados')
+            return
+
+        parent = root_window.window if root_window and hasattr(root_window, 'window') else None
+        top = tk.Toplevel(parent)
+        top.title('Asignar grupos de grabadoras')
+        top.geometry('520x520')
+
+        tk.Label(top, text='Seleccione la columna que identifica la grabadora:').pack(padx=10, pady=(10, 0), anchor='w')
+        cols = list(df_ref.columns)
+        col_var = tk.StringVar(value=cols[0] if cols else '')
+        col_combo = ttk.Combobox(top, textvariable=col_var, values=cols, state='readonly')
+        col_combo.pack(fill='x', padx=10, pady=6)
+
+        container = tk.Frame(top)
+        container.pack(fill='both', expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(container, borderwidth=0)
+        scrollbar = ttk.Scrollbar(container, orient='vertical', command=canvas.yview)
+        form_frame = tk.Frame(canvas)
+
+        form_frame.bind(
+            '<Configure>',
+            lambda e: canvas.configure(scrollregion=canvas.bbox('all'))
+        )
+        canvas.create_window((0, 0), window=form_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+
+        mapping_entries = {}
+
+        def build_form(selected_col):
+            for wdg in list(form_frame.children.values()):
+                wdg.destroy()
+            mapping_entries.clear()
+
+            try:
+                unique_recorders = pd.unique(df_ref[selected_col])
+            except Exception:
+                unique_recorders = []
+            if unique_recorders is None:
+                unique_recorders = []
+
+            tk.Label(form_frame, text=f'Asigne grupo a cada valor en "{selected_col}":').grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 6))
+            for i, r in enumerate(unique_recorders, start=1):
+                tk.Label(form_frame, text=str(r)).grid(row=i, column=0, sticky='w', padx=(0, 8), pady=3)
+                entry = tk.Entry(form_frame)
+                entry.grid(row=i, column=1, sticky='ew', pady=3)
+                form_frame.grid_columnconfigure(1, weight=1)
+                mapping_entries[r] = entry
+
+        build_form(col_var.get())
+
+        def on_col_change(_event=None):
+            build_form(col_var.get())
+
+        col_combo.bind('<<ComboboxSelected>>', on_col_change)
+
+        btns = tk.Frame(top)
+        btns.pack(fill='x', padx=10, pady=(0, 10))
+
+        def on_save():
+            selected_col = col_var.get()
+            if selected_col not in df_ref.columns:
+                print(f'La columna "{selected_col}" no existe en df_ref')
+                return
+            mapping = {r: entry.get().strip() for r, entry in mapping_entries.items()}
+            try:
+                df_ref['group'] = df_ref[selected_col].map(mapping)
+                df_ref['group'] = df_ref['group'].fillna('Sin grupo')
+                print('Columna "group" agregada y actualizada en df.md')
+            except Exception as e:
+                print(f'Error al asignar grupos: {e}')
+                return
+            top.destroy()
+
+        tk.Button(btns, text='Guardar', command=on_save).pack(side='left')
+        tk.Button(btns, text='Cancelar', command=top.destroy).pack(side='left', padx=8)
     
 class Sampler:
     """Class for resampling audio files in the dataset."""
