@@ -278,132 +278,148 @@ class Analyser:
         fig.set_tight_layout('tight')
         plt.show(block=False)
 
-    def ac_print(self, df):
-        plt.ion()
-        group_site = df.groupby(['site'])
-        Ls = len(group_site)
-        k = 0
-        self.XX = np.zeros([65, 48, Ls])
-        self.X = np.zeros([Ls, 65 * 48])
-        self.sites_ind = []  # numeric labels for plotting
-        self.meta_rows = []  # list of dicts: {'treatment_idx', 'site', 'day'}
-        for site, data_site in group_site:
-            group_hour = data_site.groupby(['hour'])
-            Lh = len(group_hour)
-            i = 0
-            Stt = np.zeros([513, Lh])
-            tn = np.zeros([Lh])
-            print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
-            for hour, rows in group_hour:
-                tn[i] = sum(hour)
-                L = len(rows)
-                St = np.zeros(513)
-                for _, row in rows.iterrows():
-                    file = row['route']
-                    s, fs = sound.load(file)
-                    if fs!= 48000:
-                        s = sound.resample(s, fs, 48000, res_type='kaiser_fast')
-                        fs = 48000
-                    Stmp, fn = sound.spectrum(s, fs, window='hann', nperseg=1024, noverlap=512)
-                    St = St + Stmp
-                St = St / L
-                Stt[:, i] = St
-                i = i + 1
-                print('progress: ' + str(i) + ' of ' + str(Lh))
-            values, counts = np.unique(Stt[128:384, :], return_counts=True)
-            mc = values[counts.argmax()]
-            Stt_db = 20 * np.log10(Stt / mc)
-            mask = Stt_db > 0
-            Sm = Stt_db * mask
-            Sd = downscale_local_mean(Sm, (8, 1))
-            self.XX[:, :, k] = Sd
-            self.X[k, :] = np.ravel(Sd, order='C')
+    def build_acoustic_print(self, data_subset):
+        """Compute the acoustic print matrix (Sd) for a subset of metadata rows.
 
-            # Create a dedicated figure per site to avoid reuse
-            fig_site, ax_site = plt.subplots()
-            ax_site.set_ylabel('Hour')
-            ax_site.set_xlabel('Frequency (kHz)')
-            ax_site.set_title(str(site))
-            ax_site.imshow(Sd, aspect='auto', origin='lower', extent=[tn[0], tn[len(tn) - 1], 0, fn[-1] / 1000])
-            fig_site.tight_layout()
-            # Save figure per site and render immediately
-            safe_site = ''.join(c if (c.isalnum() or c in '._- ') else '_' for c in str(site))
-            fig_site.savefig(f"site_print_{safe_site}.png", dpi=150, bbox_inches='tight')
-            self.meta_rows.append({'treatment_idx': k, 'site': site}) 
-            self.sites_ind.append(k)
-            fig_site.canvas.draw_idle()
-            plt.show(block=False)
-            plt.pause(0.05)
-            k = k + 1
-            print('progress: sitio' + str(k) + ' of ' + str(Ls))
+        The subset is expected to belong to a single site (and optionally a single day).
+        Rows are grouped by 'hour', each hour's spectra are averaged, converted to dB,
+        masked, and downscaled to produce a compact acoustic print.
+
+        Returns:
+            Sd: 2D numpy array [65 x 48] acoustic print
+            tn: 1D numpy array of hour bins (for plotting extent)
+            fn: 1D numpy array of frequency bins from last spectrum
+        """
+        group_hour = data_subset.groupby(['hour'])
+        Lh = len(group_hour)
+        i = 0
+        Stt = np.zeros([513, Lh])
+        tn = np.zeros([Lh])
+        fn = None
+        for hour, rows in group_hour:
+            tn[i] = sum(hour)
+            L = len(rows)
+            St = np.zeros(513)
+            for _, row in rows.iterrows():
+                file = row['route']
+                s, fs = sound.load(file)
+                if fs != 48000:
+                    s = sound.resample(s, fs, 48000, res_type='kaiser_fast')
+                    fs = 48000
+                Stmp, fn = sound.spectrum(s, fs, window='hann', nperseg=1024, noverlap=512)
+                St = St + Stmp
+            St = St / max(L, 1)
+            Stt[:, i] = St
+            i = i + 1
+            print('progress: ' + str(i) + ' of ' + str(Lh) + ' hours')
+        # Robust dB transform using a modal reference within the informative band
+        values, counts = np.unique(Stt[128:384, :], return_counts=True)
+        mc = values[counts.argmax()] if values.size > 0 else 1.0
+        if mc == 0:
+            mc = 1.0
+        Stt_db = 20 * np.log10(Stt / mc)
+        mask = Stt_db > 0
+        Sm = Stt_db * mask
+        Sd = downscale_local_mean(Sm, (8, 1))
+        return Sd, tn, fn
     
-    def ac_print_by_days(self, df):
+    def plot_acoustic_print(self, idx):
+        # Guard against out-of-bounds and missing metadata; still plot when matrices exist
+        if idx < 0 or idx >= self.XX.shape[2]:
+            print(f"Index {idx} out of range for acoustic prints with length {self.XX.shape[2]}")
+            return
+
+        # Derive labels from metadata when available, otherwise use generic labels
+        if idx < len(self.meta_rows):
+            meta = self.meta_rows[idx]
+            site_label = str(meta.get('site', f'Treatment {idx}'))
+            day_label = meta.get('day')
+        else:
+            site_label = f'Treatment {idx}'
+            day_label = None
+
+        title = f"Acoustic Print - {site_label} (Treatment {idx})"
+        if day_label is not None:
+            title += f" - Day {day_label}"
+
+        fig, ax = plt.subplots()
+        ax.set_title(title)
+        ax.set_xlabel('Hour')
+        ax.set_ylabel('Frequency (kHz)')
+        im = ax.imshow(self.XX[:, :, idx], aspect='auto', origin='lower', extent=[0, 24, 0, 24])
+        fig.tight_layout()
+        safe_label = ''.join(c if (c.isalnum() or c in '._- ') else '_' for c in site_label)
+        fig.savefig(f"site_print_{safe_label}.png", dpi=150, bbox_inches='tight')
+        fig.colorbar(im, ax=ax, label='Intensity (dB)')
+        plt.show(block=False)
+        plt.pause(0.05)
+        fig.canvas.draw_idle()
+
+    def ac_print(self, df, by_days: bool = False):
+        """Build acoustic prints and matrices.
+        When by_days=False, aggregates per site (original ac_print).
+        When by_days=True, aggregates per (site, day) (original ac_print_by_days).
+        Populates self.X, self.XX, self.sites_ind, and self.meta_rows accordingly.
+        """
         plt.ion()
         group_site = df.groupby(['site'])
         Ls = len(group_site)
-        group_day = df.groupby(['day'])
-        L_days = len(group_day)
-        L_treatments = Ls * L_days
-        print("Número de combinaciones (sitio-día): " + str(L_treatments))
 
-        k = 0
+        # Prepare allocation based on mode
+        if not by_days:
+            L_treatments = Ls
+        else:
+            treatments = []
+            for site_tmp, data_site_tmp in group_site:
+                for day_tmp, _ in data_site_tmp.groupby(['day']):
+                    treatments.append((site_tmp, day_tmp))
+            L_treatments = len(treatments)
+            print("Número de combinaciones (sitio-día): " + str(L_treatments))
+
         self.XX = np.zeros([65, 48, L_treatments])
         self.X = np.zeros([L_treatments, 65 * 48])
-        self.sites_ind = []  # numeric labels for plotting
-        self.meta_rows = []  # list of dicts: {'treatment_idx', 'site', 'day'}
+        self.sites_ind = []
+        self.meta_rows = []
 
+        k = 0
         for site, data_site in group_site:
-            print('site: ' + str(site) + ' of ' + str(Ls) + ' sites')
-            group_day_site = data_site.groupby(['day'])
-            Ld = len(group_day_site)
-            for day, data_day in group_day_site:
-                print('dia: ' + str(day) + ' # ' + ' of ' + str(Ld) + ' days')
-                group_hour = data_day.groupby(['hour'])
-                Lh = len(group_hour)
-                i = 0
-                Stt = np.zeros([513, Lh])
-                tn = np.zeros([Lh])
-                for hour, rows in group_hour:
-                    tn[i] = sum(hour)
-                    L = len(rows)
-                    St = np.zeros(513)
-                    for _, row in rows.iterrows():
-                        file = row['route']
-                        s, fs = sound.load(file)
-                        if fs != 48000:
-                            s = sound.resample(s, fs, 48000, res_type='kaiser_fast')
-                            fs = 48000
-                        Stmp, fn = sound.spectrum(s, fs, window='hann', nperseg=1024, noverlap=512)
-                        St = St + Stmp
-                    St = St / L
-                    Stt[:, i] = St
-                    i = i + 1
-                    print('progreso: ' + str(i) + ' horas de ' + str(Lh))
-                values, counts = np.unique(Stt[128:384, :], return_counts=True)
-                mc = values[counts.argmax()]
-                Stt_db = 20 * np.log10(Stt / mc)
-                mask = Stt_db > 0
-                Sm = Stt_db * mask
-                Sd = downscale_local_mean(Sm, (8, 1))
+            if not by_days:
+                # Per-site aggregation
+                print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
+                Sd, tn, fn = self.build_acoustic_print(data_site)
                 self.XX[:, :, k] = Sd
                 self.X[k, :] = np.ravel(Sd, order='C')
-
-                # Create a dedicated figure per day to avoid reuse
-                fig_day, ax_day = plt.subplots()
-                ax_day.imshow(Sd, aspect='auto', origin='lower', extent=[tn[0], tn[len(tn) - 1], 0, fn[-1] / 1000])
-                ax_day.set_xlabel('Hora')
-                ax_day.set_ylabel('Frequency (kHz)')
-                ax_day.set_title('sitio: ' + str(site) + ' día: ' + str(day))
-                fig_day.tight_layout()
-                fig_day.savefig(str(site) + '_' + str(day) + '.png', dpi=150, bbox_inches='tight')
+                self.plot_acoustic_print(k)
+                try:
+                    group_label = data_site['group'].iloc[0]
+                except Exception:
+                    group_label = site
+                self.meta_rows.append({'treatment_idx': k, 'site': site, 'group': group_label})
+                self.sites_ind.append(k)
+                #fig_site.canvas.draw_idle()
                 plt.show(block=False)
                 plt.pause(0.05)
-
-                # Record metadata for this treatment index
-                self.meta_rows.append({'treatment_idx': k, 'site': site, 'day': day})
-                self.sites_ind.append(k)
                 k = k + 1
-                print('progreso: combinación sitio-día ' + str(k) + ' de ' + str(L_treatments))    
+                print('progress: sitio ' + str(k) + ' of ' + str(Ls))
+            else:
+                # Per (site, day) aggregation
+                group_day_site = data_site.groupby(['day'])
+                Ld = len(group_day_site)
+                for day, data_day in group_day_site:
+                    print('dia: ' + str(day) + ' # ' + ' of ' + str(Ld) + ' days')
+                    Sd, tn, fn = self.build_acoustic_print(data_day)
+                    self.XX[:, :, k] = Sd
+                    self.X[k, :] = np.ravel(Sd, order='C')
+                    self.plot_acoustic_print(k)
+
+                    try:
+                        group_label = data_day['group'].iloc[0]
+                    except Exception:
+                        group_label = site
+                    self.meta_rows.append({'treatment_idx': k, 'site': site, 'day': day, 'group': group_label})
+                    self.sites_ind.append(k)
+                    k = k + 1
+                    print('progreso: combinación sitio-día ' + str(k) + ' de ' + str(L_treatments))
     
     def calculate_nmds(self):
         dist_euclid = euclidean_distances(self.X)
@@ -412,6 +428,20 @@ class Analyser:
         y = np.transpose(self.sites_ind)
         mds = MDS(metric=metric, dissimilarity='precomputed', random_state=0)
         pts = mds.fit_transform(dist_matrix)
+
+        # Align metadata and point counts if they differ to avoid pandas length errors
+        if len(self.meta_rows) != pts.shape[0]:
+            print(f"Warning: metadata rows ({len(self.meta_rows)}) != points ({pts.shape[0]}). Aligning sizes.")
+            n = min(len(self.meta_rows), pts.shape[0])
+            pts = pts[:n, :]
+            self.X = self.X[:n, :]
+            self.sites_ind = self.sites_ind[:n]
+
+        # Build metadata DataFrame aligned to the points and include NMDS coordinates
+        npts = pts.shape[0]
+        df_meta = pd.DataFrame(self.meta_rows[:npts])
+        df_meta['NMDSx'] = pts[:, 0]
+        df_meta['NMDSy'] = pts[:, 1]
 
         # Create a new figure for the MDS scatter (do not reuse figure 1)
         fig2 = plt.figure(figsize=(10, 10))
@@ -429,11 +459,13 @@ class Analyser:
 
         fig3 = plt.figure(figsize=(10, 10))
         ax3 = fig3.add_subplot()
-        sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=self.sites_ind, palette='pastel', ax=ax3)
+        # Use 'group' labels for hue if present; fallback to 'site'
+        hue_labels = df_meta['group'].tolist() if 'group' in df_meta.columns else df_meta['site'].tolist()
+        sns.scatterplot(x=pts[:, 0], y=pts[:, 1], hue=hue_labels, palette='pastel', ax=ax3)
         plt.title('Metric NMDS with Euclidean distances')
         plt.ylabel('NMDSy')
         plt.xlabel('NMDSx')
         plt.show(block=False)
-        # Build a metadata DataFrame for correlation downstream
-        df_meta = pd.DataFrame(self.meta_rows)
+        # Return matrices, labels, points, and enriched metadata
+        print('Non parametric multidimensional scaling (NMDS) calculated successfully')
         return (self.X, y, pts, df_meta)

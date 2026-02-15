@@ -23,7 +23,7 @@ import obj
 df=obj.metadata(pd.DataFrame(),'_','_','_')
 w=obj.widget('ch_rec','flims','txt','tlen','db','bstd','bper')
 p=obj.path('_','_')
-data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame(),[])
+data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame(),[],pd.DataFrame())
 flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
@@ -168,16 +168,14 @@ def calculate_acoustic_print():
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
-    analyser.ac_print_by_days(df.md)
+    analyser.ac_print(df.md, by_days=True)
     
 
 def calculate_nmds():     
     print('Calculando NMDS de la huella acústica')
-    X, y, nmds, df_meta =analyser.calculate_nmds()
-    nmds_list = nmds.tolist() if hasattr(nmds, 'tolist') else list(nmds)
-    data.csv_summary['nmds'] = pd.Series(list(nmds_list), dtype='object').values
-
-    print('Huella acústica por días calculada exitosamente')
+    _X, _y, _pts, _df_meta = analyser.calculate_nmds()
+    data.npy_matrixAcousticPrint = _X
+    data.data_analysis = _df_meta
 
 ###########################################
 ### Guardar datos #########################
@@ -218,6 +216,14 @@ def save_csv():
     else:
         filename = p.save + '/' + 'matrixOfAcousticPrints' + '_' + txt_name + '.npy'
         np.save(filename, data.npy_matrixAcousticPrint)
+        print('Archivo creado:')
+        print(filename)
+    
+    if data.data_analysis is None:
+        print('No hay matriz de huella acústica cargada')
+    else:
+        filename = p.save + '/' + 'data_analysis' + '_' + txt_name + '.csv'
+        data.data_analysis.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
         print('Archivo creado:')
         print(filename)
 
