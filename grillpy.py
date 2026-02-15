@@ -15,7 +15,7 @@ from maad import sound #util
 import pandas as pd
 
 import gui
-import analisis
+import analysis
 import utils
 import obj
 
@@ -23,13 +23,14 @@ import obj
 df=obj.metadata(pd.DataFrame(),'_','_','_')
 w=obj.widget('ch_rec','flims','txt','tlen','db','bstd','bper')
 p=obj.path('_','_')
-data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame(),[])
+data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame(),[],pd.DataFrame())
 flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
-analyser = analisis.Analyser()
+analyser = analysis.Analyser(np.zeros,np.zeros,[],[])
 loader = utils.Loader()
 sampler = utils.Sampler()
+editor = utils.DataFrameEditor()
 
 ###########################################
 ### Load data #############################
@@ -82,19 +83,29 @@ def prep_recs():
         print(data.csv_summary)
         
 def sel_days():
-    df.days, _indices = np.unique(df.md.day, return_inverse=True)  
-    print('Días a analizar:')
-    print(df.days)
-    print('Escriba los días que desea analizar en la siguiente línea separados por ":" ej: 20230504:20230507 y presione Enter:')
-    w.txt=input()
-    df_new=loader.update_df(df.md, w.txt)
-    if df_new.empty:        
+    """Open GUI to select start/end days and update df.md accordingly."""
+    df_new = editor.select_days_gui(df.md, root_window)
+    if df_new is None or df_new.empty:
         print('Error')
     else:
         print('Días seleccionados y DataFrame actualizado')
         df.md=[]; df.md=df_new
 
-def resample(): sampler.resample_dataset(df.md)       
+def resample(): sampler.resample_dataset(df.md)   
+
+def show_metadata_df():
+    """Show the current metadata DataFrame (df.md) in a new window."""
+    try:
+        utils.DataFrameEditor.show_dataframe(df.md, title="Metadatos (df.md)", root_window=root_window)
+    except Exception as e:
+        print(f"Error al mostrar DataFrame: {e}")
+
+def assign_groups_gui():
+    """Abrir editor de grupos usando DataFrameEditor (GUI)."""
+    try:
+        editor.assign_groups_gui(df.md, root_window)
+    except Exception as e:
+        print(f'Error al abrir el editor de grupos: {e}')
         
 ###########################################
 ### Functions #############################
@@ -150,38 +161,21 @@ def calculate_spl():
     print('Índices SPL calculados')
     
     
-def calculate_acoustic_print():    
-    X, _y, nmds, matrixAcousticPrint = analyser.ac_print(df.md)
-    # Convert to native lists
-    nmds_list = nmds.tolist() if hasattr(nmds, 'tolist') else list(nmds)
-    X_list = X.tolist() if hasattr(X, 'tolist') else list(X)
-    # Store matrix
-    data.npy_matrixAcousticPrint = matrixAcousticPrint
-    # If csv_summary has the same number of rows, assign per-row lists; else store as a single-row object
-    if isinstance(data.csv_summary, pd.DataFrame) and not data.csv_summary.empty and len(data.csv_summary) == len(nmds_list):
-        # Assign lists per-row; ensure object dtype
-        data.csv_summary = data.csv_summary.copy()
-        data.csv_summary['nmds'] = pd.Series(list(nmds_list), dtype='object').values
-        data.csv_summary['ac_print'] = pd.Series(list(X_list), dtype='object').values
-    else:
-        # Store as single-row object columns
-        data.csv_summary = pd.DataFrame({'nmds': [nmds_list], 'ac_print': [X_list]})
-    print('Huella acústica calculada exitosamente')
+def calculate_acoustic_print(): 
+    print('Calculando huella acústica promedio')   
+    analyser.ac_print(df.md)
+
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
-    X, _y, nmds = analyser.ac_print_by_days(df.md)
-    # Convert to native lists
-    nmds_list = nmds.tolist() if hasattr(nmds, 'tolist') else list(nmds)
-    X_list = X.tolist() if hasattr(X, 'tolist') else list(X)
-    # Assign per-row if lengths match, else store as a single-row object
-    if isinstance(data.csv_summary, pd.DataFrame) and not data.csv_summary.empty and len(data.csv_summary) == len(nmds_list):
-        data.csv_summary = data.csv_summary.copy()
-        data.csv_summary['nmds'] = pd.Series(list(nmds_list), dtype='object').values
-        data.csv_summary['ac_print'] = pd.Series(list(X_list), dtype='object').values
-    else:
-        data.csv_summary = pd.DataFrame({'nmds': [nmds_list], 'ac_print': [X_list]})
-    print('Huella acústica por días calculada exitosamente')
+    analyser.ac_print(df.md, by_days=True)
+    
+
+def calculate_nmds():     
+    print('Calculando NMDS de la huella acústica')
+    _X, _y, _pts, _df_meta = analyser.calculate_nmds()
+    data.npy_matrixAcousticPrint = _X
+    data.data_analysis = _df_meta
 
 ###########################################
 ### Guardar datos #########################
@@ -214,7 +208,6 @@ def save_csv():
     else:
         filename = p.save + '/' + 'resumen_general_conjunto_grabadoras'+ '_' + txt_name + '.csv'
         data.csv_summary.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
-        # data.csv_summary.to_excel('summary.xlsx')
         print('Archivo creado:')
         print(filename)
 
@@ -223,6 +216,14 @@ def save_csv():
     else:
         filename = p.save + '/' + 'matrixOfAcousticPrints' + '_' + txt_name + '.npy'
         np.save(filename, data.npy_matrixAcousticPrint)
+        print('Archivo creado:')
+        print(filename)
+    
+    if data.data_analysis is None:
+        print('No hay matriz de huella acústica cargada')
+    else:
+        filename = p.save + '/' + 'data_analysis' + '_' + txt_name + '.csv'
+        data.data_analysis.to_csv(filename, sep='\t', header=True, index=False, encoding='utf-8')
         print('Archivo creado:')
         print(filename)
 
@@ -254,29 +255,34 @@ root_window=gui.Window()
 
 ##### Frame buttons###############################################
 frame_buttons=root_window.insert_frame(1,1)
-frame_btns_load=root_window.insert_subframe(frame_buttons,4,1,"Carga de archivos",pady=10)
+frame_btns_load=root_window.insert_subframe(frame_buttons,1,1,"Carga de archivos",pady=5)
 root_window.insert_button(frame_btns_load,1,1,"Cargar archivo",read_file)
 root_window.insert_button(frame_btns_load,2,1,"Cargar una grabadora",get_data_files)
 root_window.insert_button(frame_btns_load,3,1,"Cargar conjunto de grabadoras",prep_recs)
-root_window.insert_button(frame_btns_load,4,1,"Resamplear",resample)
-root_window.insert_button(frame_btns_load,5,1,"Seleccionar días",sel_days)
 
-frame_btns_process=root_window.insert_subframe(frame_buttons,6,1,"Funciones procesamiento",pady=10)
+frame_btns_preprocess=root_window.insert_subframe(frame_buttons,2,1,"Pre-procesamiento",pady=5)   
+root_window.insert_button(frame_btns_preprocess,1,1,"Resamplear",resample)
+root_window.insert_button(frame_btns_preprocess,2,1,"Seleccionar días",sel_days)
+root_window.insert_button(frame_btns_preprocess,3,1,"Ver metadatos",show_metadata_df)
+root_window.insert_button(frame_btns_preprocess,4,1,"Asignar grupos",assign_groups_gui)
+
+frame_btns_process=root_window.insert_subframe(frame_buttons,3,1,"Procesamiento",pady=5)
 root_window.insert_button(frame_btns_process,1,1,"Espectrograma (archivo o un día)",one_day_spec)
 root_window.insert_button(frame_btns_process,2,1,"Espectrograma (conjunto de grabadoras)",rois_gui)
 root_window.insert_button(frame_btns_process,3,1,"Calcular índices por día",calculate_ind)
 root_window.insert_button(frame_btns_process,4,1,"Calcular SPL",calculate_spl)
-root_window.insert_button(frame_btns_process,5,1,"Huella acústica",calculate_acoustic_print)
+root_window.insert_button(frame_btns_process,5,1,"Huella acústica por sitio",calculate_acoustic_print)
 root_window.insert_button(frame_btns_process,6,1,"Huella acústica por días",calculate_acoustic_print_by_days)
+root_window.insert_button(frame_btns_process,7,1,"Calcular NMDS de la huella acústica",calculate_nmds)
 
-frame_bsave=root_window.insert_subframe(frame_buttons,2,1,"Funciones guardado",pady=10)
+frame_bsave=root_window.insert_subframe(frame_buttons,4,1,"Guardado",pady=5)
 root_window.insert_button(frame_bsave,1,1,"Guardar archivo de audio (.wav)",save_wav)
 root_window.insert_button(frame_bsave,2,1,"Guardar datos (.csv)",save_csv)
 
 ##### Frame Variables  ###########################################
 frame_settings=root_window.insert_frame(1,2)
 frame_recorder=root_window.insert_subframe(frame_settings,1,1,"Seleccion de grabadora",pady=10)
-cbox=root_window.insert_combobox(frame_recorder,1,1,['Audiomoth: aammdd_hhmmss','SongMeter: nombre_aammdd_hhmmss'],
+cbox=root_window.insert_combobox(frame_recorder,1,1,['Audiomoth: aammdd_hhmmss','Grillo: aammdd_hhmmss'],
                     width=40,state='readonly', default='Seleccione un formato de grabadora')
 frame_var=root_window.insert_subframe(frame_settings,2,1,pady=10)
 ch1, ch_rec=root_window.insert_checkbutton(frame_var,1,1,"Variables personalizadas",command=activ_spec_vars)

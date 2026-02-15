@@ -43,12 +43,13 @@ class path:
         self.save = save
         
 class data:
-    def __init__(self, wav, wavfs, csv_summary,csv_data,npy_matrixAcousticPrint):
+    def __init__(self, wav, wavfs, csv_summary,csv_data,npy_matrixAcousticPrint,data_analysis):
         self.wav = wav
         self.wavfs = wavfs
         self.csv_summary = csv_summary
         self.csv_data = csv_data
         self.npy_matrixAcousticPrint = npy_matrixAcousticPrint
+        self.data_analysis = data_analysis
 
 def get_info_widgets(ch_rec,fmine,fmaxe,tlene,fs,db,bstd,bp):
     if ch_rec == '_': ch= '_'; flims= '_'; samp_len='_'; dbf='_'

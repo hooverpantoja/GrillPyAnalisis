@@ -5,13 +5,17 @@ Created on Wed Apr 26 11:07:09 2023
 @author: Esteban
 """
 import os
+from tkinter.filedialog import askdirectory
+import tkinter as tk
+from tkinter import ttk
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
-from maad import sound
-from tkinter.filedialog import askdirectory
-from pathlib import Path
+from resampy import resample
+from scipy.io import wavfile
+
 
 class Loader:
     def __init__(self):
@@ -19,10 +23,12 @@ class Loader:
 
     @staticmethod
     def find(s, ch):
+        """Find all indices of character 'ch' in string 's'."""
         return [i for i, ltr in enumerate(s) if ltr == ch]
 
     @classmethod
     def create_df(cls, path, flist, recorder, fload):
+        """Create a DataFrame with metadata extracted from audio file names."""
         d=pd.DataFrame()
         L=str(len(flist))
         for i,j in enumerate(flist):
@@ -31,10 +37,12 @@ class Loader:
             else:
                 file = os.path.basename(j)
                 
-            if recorder=='SongMeter: nombre_aammdd_hhmmss':
+            if recorder=='Grillo: nombre_aammdd_hhmmss':
                 ind=cls.find(file,'_')
                 ind.append(file.find('.'))
-                d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=file[0:ind[0]]
+                d.loc[i,'route']=flist[i]
+                d.loc[i,'file']=file
+                d.loc[i,'site']=file[0:ind[0]]
                 d.loc[i,'date_fmt']=pd.to_datetime(file[ind[0]+1:ind[1]]+' '+file[ind[1]+1:ind[2]], format='%Y%m%d %H%M%S')
                 d.loc[i,'day']=file[ind[0]+1:ind[1]]
                 d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
@@ -50,18 +58,11 @@ class Loader:
                     
                 ind=cls.find(file,'_')
                 ind.append(file.find('.'))
-                d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=site
+                d.loc[i,'route']=flist[i]
+                d.loc[i,'file']=file
+                d.loc[i,'site']=site
                 d.loc[i,'date_fmt']=pd.to_datetime(file[0:ind[0]]+' '+file[ind[0]+1:ind[1]], format='%Y%m%d %H%M%S')
                 d.loc[i,'day']=file[0:ind[0]]
-                d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
-                
-            elif recorder=='Snap: name_aammddThhmmss':
-                ind_=cls.find(file,'_')
-                indT=cls.find(file,'T')
-                indp=cls.find(file,'.')
-                d.loc[i,'route']=flist[i]; d.loc[i,'file']=file; d.loc[i,'site']=file[ind_[0]+1:ind_[1]]
-                d.loc[i,'date_fmt']=pd.to_datetime(file[ind_[1]+1:indT[0]]+' '+file[indT[0]+1:indp[0]], format='%Y%m%d %H%M%S')
-                d.loc[i,'day']=file[ind_[1]+1:indT[0]]
                 d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
 
             if fload == 'file': # Break for cycle so flist is assigned to route in the first iteration. This is only necessary for files
@@ -70,9 +71,10 @@ class Loader:
             
             print('progress: ' + str(i+1) +' of ' + L)    
         return(d)  
-
+    
     @classmethod
     def plot_folder_stats(cls, df):
+        """Plot the distribution of recordings by day and hour."""
         days, indd = np.unique(df.day, return_inverse=True)   
         hour=df.hour
         hours, indh = np.unique(hour, return_inverse=True)   
@@ -90,9 +92,10 @@ class Loader:
         plt.ylabel('Hour')
         plt.xlabel('File count')
         plt.show()
-        
+
     @classmethod
     def plot_set_recorders(cls, df):
+        """Plot the distribution of recordings by site and day."""
         d = df.groupby('site')
         dc = pd.DataFrame(d.day.value_counts())
         dc.rename(columns={'day': 'count'}, inplace=True)
@@ -114,39 +117,277 @@ class Loader:
         df_new = df_summary.reset_index().rename(columns={'index': 'site'})
         return df_new
 
+class DataFrameEditor:
+    """Class for editing and displaying DataFrames."""
+    def __init__(self):
+        pass
+
     @classmethod
     def update_df(cls, df, txt):
-        indsep = cls.find(txt, ':')
-        init = pd.to_datetime(txt[0:indsep[0]], format='%Y%m%d')
-        fin = pd.to_datetime(txt[indsep[0]+1:len(txt)], format='%Y%m%d')
-        # boolean indexing to avoid pandas query with @ variables
+        """Update the DataFrame to include only recordings within a specified date range.
+
+        Expects input like 'YYYYMMDD:YYYYMMDD'.
+        """
+        parts = str(txt).split(':')
+        if len(parts) != 2:
+            return pd.DataFrame()
+        init = pd.to_datetime(parts[0], format='%Y%m%d')
+        fin = pd.to_datetime(parts[1], format='%Y%m%d')
         df_day = df[(df['date_fmt'] >= init) & (df['date_fmt'] < fin)]
         return df_day
     
+    @classmethod
+    def show_dataframe(cls, df_to_show: pd.DataFrame, title: str = "DataFrame",root_window=None):
+        """Open a new Tkinter window with a scrollable table (ttk.Treeview) to display a DataFrame.
+
+        - Shows columns as headers
+        - Adds vertical and horizontal scrollbars
+        - Adapts column widths based on header length
+        """
+        if df_to_show is None or (isinstance(df_to_show, pd.DataFrame) and df_to_show.empty):
+            print('No hay metadatos para mostrar')
+            return
+
+        top = tk.Toplevel(root_window.window if root_window else None)
+        top.title(title)
+        top.geometry("900x500")
+
+        container = ttk.Frame(top)
+        container.pack(fill='both', expand=True)
+
+        # Create Treeview
+        cols = list(df_to_show.columns)
+        tree = ttk.Treeview(container, columns=cols, show='headings')
+
+        # Scrollbars
+        vsb = ttk.Scrollbar(container, orient="vertical", command=tree.yview)
+        hsb = ttk.Scrollbar(container, orient="horizontal", command=tree.xview)
+        tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        # Grid placement
+        tree.grid(row=0, column=0, sticky='nsew')
+        vsb.grid(row=0, column=1, sticky='ns')
+        hsb.grid(row=1, column=0, sticky='ew')
+
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        # Configure headings and column widths
+        for c in cols:
+            tree.heading(c, text=str(c))
+            # Set a reasonable default width based on header length
+            width = max(100, min(300, 10 * len(str(c))))
+            tree.column(c, width=width, stretch=True, anchor='w')
+
+        # Insert data rows
+        for _, row in df_to_show.iterrows():
+            values = [row[c] for c in cols]
+            # Convert complex objects to string for display
+            values = [str(v) if not (isinstance(v, (int, float, str)) or pd.isna(v)) else ("" if pd.isna(v) else v) for v in values]
+            tree.insert('', 'end', values=values)
+
+    @classmethod
+    def select_days_gui(cls, df_ref: pd.DataFrame, root_window=None) -> pd.DataFrame:
+        """Open a simple GUI to select start/end days and return a filtered DataFrame.
+
+        - Lists unique values from df_ref['day'] in two dropdowns (start/end)
+        - Returns the filtered DataFrame using update_df(start:end)
+        - Returns an empty DataFrame if cancelled or invalid
+        """
+        if not isinstance(df_ref, pd.DataFrame) or df_ref.empty or 'day' not in df_ref.columns:
+            print('No hay metadatos cargados o falta la columna "day"')
+            return pd.DataFrame()
+
+        # Gather unique days, keep as strings, sorted
+        try:
+            day_values = pd.unique(df_ref['day'])
+        except Exception:
+            day_values = []
+        day_values = [str(d) for d in day_values if pd.notna(d)]
+        if not day_values:
+            print('No hay valores de días disponibles')
+            return pd.DataFrame()
+        day_values = sorted(day_values)
+
+        parent = root_window.window if root_window and hasattr(root_window, 'window') else None
+        top = tk.Toplevel(parent)
+        top.title('Seleccionar días a analizar')
+        top.geometry('420x220')
+
+        # Start day selector
+        tk.Label(top, text='Día inicial (YYYYMMDD):').pack(padx=10, pady=(12, 2), anchor='w')
+        start_var = tk.StringVar(value=day_values[0])
+        start_combo = ttk.Combobox(top, textvariable=start_var, values=day_values, state='readonly')
+        start_combo.pack(fill='x', padx=10, pady=(0, 8))
+
+        # End day selector
+        tk.Label(top, text='Día final (YYYYMMDD):').pack(padx=10, pady=(4, 2), anchor='w')
+        end_var = tk.StringVar(value=day_values[-1])
+        end_combo = ttk.Combobox(top, textvariable=end_var, values=day_values, state='readonly')
+        end_combo.pack(fill='x', padx=10, pady=(0, 12))
+
+        # Result holder
+        result = {'df': None}
+
+        def on_save():
+            start = start_var.get().strip()
+            end = end_var.get().strip()
+            if not start or not end:
+                print('Seleccione ambos días')
+                return
+            # Validate ordering using lexicographic since YYYYMMDD
+            if start > end:
+                print('El día inicial debe ser menor o igual al final')
+                return
+            try:
+                df_new = cls.update_df(df_ref, f"{start}:{end}")
+            except Exception as e:
+                print(f'Error al filtrar por días: {e}')
+                df_new = pd.DataFrame()
+            result['df'] = df_new
+            top.destroy()
+
+        def on_cancel():
+            top.destroy()
+
+        btns = tk.Frame(top)
+        btns.pack(fill='x', padx=10, pady=(0, 10))
+        tk.Button(btns, text='Guardar', command=on_save).pack(side='left')
+        tk.Button(btns, text='Cancelar', command=on_cancel).pack(side='left', padx=8)
+
+        # Block until window closes so we can return synchronously
+        top.wait_window()
+        return result['df'] if isinstance(result.get('df'), pd.DataFrame) else pd.DataFrame()
+
+    @classmethod
+    def assign_groups_gui(cls, df_ref: pd.DataFrame, root_window=None):
+        """GUI to assign a group label to each recorder and add 'group' to df_ref.
+
+        Steps:
+        - Select the recorder-identifying column from a dropdown.
+        - Enter a group label for each unique recorder value.
+        - Click Guardar to write df_ref['group'].
+        """
+        if not isinstance(df_ref, pd.DataFrame) or df_ref.empty:
+            print('No hay metadatos cargados')
+            return
+
+        parent = root_window.window if root_window and hasattr(root_window, 'window') else None
+        top = tk.Toplevel(parent)
+        top.title('Asignar grupos de grabadoras')
+        top.geometry('520x520')
+
+        tk.Label(top, text='Seleccione la columna que identifica la grabadora:').pack(padx=10, pady=(10, 0), anchor='w')
+        cols = list(df_ref.columns)
+        col_var = tk.StringVar(value=cols[0] if cols else '')
+        col_combo = ttk.Combobox(top, textvariable=col_var, values=cols, state='readonly')
+        col_combo.pack(fill='x', padx=10, pady=6)
+
+        container = tk.Frame(top)
+        container.pack(fill='both', expand=True, padx=10, pady=10)
+
+        canvas = tk.Canvas(container, borderwidth=0)
+        scrollbar = ttk.Scrollbar(container, orient='vertical', command=canvas.yview)
+        form_frame = tk.Frame(canvas)
+
+        form_frame.bind(
+            '<Configure>',
+            lambda e: canvas.configure(scrollregion=canvas.bbox('all'))
+        )
+        canvas.create_window((0, 0), window=form_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+
+        mapping_entries = {}
+
+        def build_form(selected_col):
+            for wdg in list(form_frame.children.values()):
+                wdg.destroy()
+            mapping_entries.clear()
+
+            try:
+                unique_recorders = pd.unique(df_ref[selected_col])
+            except Exception:
+                unique_recorders = []
+            if unique_recorders is None:
+                unique_recorders = []
+
+            tk.Label(form_frame, text=f'Asigne grupo a cada valor en "{selected_col}":').grid(row=0, column=0, columnspan=2, sticky='w', pady=(0, 6))
+            for i, r in enumerate(unique_recorders, start=1):
+                tk.Label(form_frame, text=str(r)).grid(row=i, column=0, sticky='w', padx=(0, 8), pady=3)
+                entry = tk.Entry(form_frame)
+                entry.grid(row=i, column=1, sticky='ew', pady=3)
+                form_frame.grid_columnconfigure(1, weight=1)
+                mapping_entries[r] = entry
+
+        build_form(col_var.get())
+
+        def on_col_change(_event=None):
+            build_form(col_var.get())
+
+        col_combo.bind('<<ComboboxSelected>>', on_col_change)
+
+        btns = tk.Frame(top)
+        btns.pack(fill='x', padx=10, pady=(0, 10))
+
+        def on_save():
+            selected_col = col_var.get()
+            if selected_col not in df_ref.columns:
+                print(f'La columna "{selected_col}" no existe en df_ref')
+                return
+            mapping = {r: entry.get().strip() for r, entry in mapping_entries.items()}
+            try:
+                df_ref['group'] = df_ref[selected_col].map(mapping)
+                df_ref['group'] = df_ref['group'].fillna('Sin grupo')
+                print('Columna "group" agregada y actualizada en df.md')
+            except Exception as e:
+                print(f'Error al asignar grupos: {e}')
+                return
+            top.destroy()
+
+        tk.Button(btns, text='Guardar', command=on_save).pack(side='left')
+        tk.Button(btns, text='Cancelar', command=top.destroy).pack(side='left', padx=8)
+    
 class Sampler:
+    """Class for resampling audio files in the dataset."""
     def __init__(self):
         pass
 
     def resample_dataset(self,df,ftarget=48000):
+        """Resample audio files in the dataset to a target sampling frequency."""
         save_dir=askdirectory(title="Seleccione carpeta para guardar los archivos resampleados")   
         print('Resampleando archivos...')
         for i, row in df.iterrows():
-            s, fs = sound.load(row.route)
-            ftarget = 22050
-            s_res = sound.resample(s, fs, ftarget, res_type='kaiser_fast')
             p=Path(row.route)
             folder=p.parent.name
             save_path = os.path.join(save_dir, folder)
-            try:
-                # Create the directory
-                os.mkdir(save_path)
-                print(f"Directory created: {save_path}")
-            except FileExistsError:
-                pass
+            filename= save_dir + '/' + str(folder) + '/' + str(p.name)
+            if os.path.isfile(filename):
+                print("Archivo ya existe")  
+            else:
+            
+                try :
+                    fs, s = wavfile.read(row.route)
+                    print('Archivo cargado: ' + str(row.route))
+                except ValueError:
+                    print('Error resampling file: ' + str(row.route))
 
-            file=p.name                             
-            filename= save_dir + '/' + str(folder) + '/' + str(file)
-            sound.write(filename, ftarget, s_res, bit_depth=16)
-            print('Archivo creado:')
-            print(filename)
+                if fs != ftarget:
+                    s_res = resample(s, fs, ftarget, res_type='kaiser_fast')
+                else:
+                    s_res = s
+
+                try:
+                    # Create the directory
+                    os.mkdir(save_path)
+                    print(f"Directory created: {save_path}")
+                except FileExistsError:
+                    print("Carpeta ya existe")
+
+                wavfile.write(filename, ftarget, s_res.astype(np.int16)) # Save the resampled audio file format as 16-bit PCM
+                print('Archivo creado:')
+                print(filename)
+
             print('progreso: ' + str(i) + ' de ' + str(len(df)))
+        
