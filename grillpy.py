@@ -15,6 +15,7 @@ from maad import sound #util
 import pandas as pd
 
 import gui
+from gui import home_path
 import analysis
 import utils
 import obj
@@ -163,12 +164,12 @@ def calculate_spl():
     
 def calculate_acoustic_print(): 
     print('Calculando huella acústica promedio')   
-    analyser.ac_print(df.md)
+    analyser.ac_print(df.md,save_dir=p.save)
 
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
-    analyser.ac_print(df.md, by_days=True)
+    analyser.ac_print(df.md, by_days=True, save_dir=p.save)
     
 
 def calculate_nmds():     
@@ -181,8 +182,27 @@ def calculate_nmds():
 ### Guardar datos #########################
 ###########################################
 
+def get_workspace_dir():
+    """Return the workspace directory from the GUI field or Desktop if empty."""
+    try:
+        val = save_dir.get().strip()
+        return val if val else home_path
+    except Exception:
+        return home_path
+
+def set_workspace_dir():
+    """Open a folder dialog and set the workspace entry and global save path."""
+    selected = askdirectory(initialdir=home_path, title="Seleccione carpeta de trabajo")
+    if selected:
+        try:
+            save_dir.delete(0, 'end')
+            save_dir.insert(0, selected)
+        except Exception:
+            pass
+        p.save = selected
+
 def save_wav():
-    p.save=askdirectory(title="Seleccione carpeta para guardar el archivo")   
+    p.save = get_workspace_dir()
     print('Escriba el nombre del archivo en la siguiente línea y presione Enter') 
     w.txt=input()                                         
     filename= p.save + '/' + w.txt +'.wav'
@@ -191,7 +211,7 @@ def save_wav():
     print(filename)
     
 def save_csv():
-    p.save = askdirectory(title="Seleccione carpeta para guardar el archivo")
+    p.save = get_workspace_dir()
     print('Escriba el nombre del archivo en la siguiente línea y presione Enter') 
     txt_name=input()
 
@@ -275,14 +295,10 @@ root_window.insert_button(frame_btns_process,5,1,"Huella acústica por sitio",ca
 root_window.insert_button(frame_btns_process,6,1,"Huella acústica por días",calculate_acoustic_print_by_days)
 root_window.insert_button(frame_btns_process,7,1,"Calcular NMDS de la huella acústica",calculate_nmds)
 
-frame_bsave=root_window.insert_subframe(frame_buttons,4,1,"Guardado",pady=5)
-root_window.insert_button(frame_bsave,1,1,"Guardar archivo de audio (.wav)",save_wav)
-root_window.insert_button(frame_bsave,2,1,"Guardar datos (.csv)",save_csv)
-
 ##### Frame Variables  ###########################################
 frame_settings=root_window.insert_frame(1,2)
 frame_recorder=root_window.insert_subframe(frame_settings,1,1,"Seleccion de grabadora",pady=10)
-cbox=root_window.insert_combobox(frame_recorder,1,1,['Audiomoth: aammdd_hhmmss','Grillo: aammdd_hhmmss'],
+cbox=root_window.insert_combobox(frame_recorder,1,1,['Audiomoth: aammdd_hhmmss','Grillo: nombre_aammdd_hhmmss'],
                     width=40,state='readonly', default='Seleccione un formato de grabadora')
 frame_var=root_window.insert_subframe(frame_settings,2,1,pady=10)
 ch1, ch_rec=root_window.insert_checkbutton(frame_var,1,1,"Variables personalizadas",command=activ_spec_vars)
@@ -292,6 +308,16 @@ fmaxe=root_window.insert_entry(frame_var,5,1,state='disabled', text="Fmax (Hz)")
 tlene=root_window.insert_entry(frame_var,6,1,state='disabled', text="Segmentos de tiempo")
 bstd=root_window.insert_entry(frame_var,7,1,state='disabled', text="bin_std")
 bp=root_window.insert_entry(frame_var,8,1,state='disabled', text="bin_per")
+
+frame_bsave=root_window.insert_subframe(frame_settings,3,1,pady=5)
+root_window.insert_button(frame_bsave,10,1,"Guardar archivo de audio (.wav)",save_wav)
+root_window.insert_button(frame_bsave,11,1,"Guardar datos (.csv)",save_csv)
+
+frame_savedir=root_window.insert_subframe(frame_settings,4,1,pady=10)
+save_dir=root_window.insert_entry(frame_savedir,12,1,w=30,state='normal',text="Seleccionar carpeta guardado",command=set_workspace_dir)
+# Set default to Desktop
+save_dir.delete(0,'end')
+save_dir.insert(0, home_path)
 
 if __name__ == "__main__":
     root_window.window.mainloop()
