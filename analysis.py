@@ -323,7 +323,7 @@ class Analyser:
         Sd = downscale_local_mean(Sm, (8, 1))
         return Sd, tn, fn
     
-    def plot_acoustic_print(self, idx):
+    def plot_acoustic_print(self, idx, save_dir=None):
         # Guard against out-of-bounds and missing metadata; still plot when matrices exist
         if idx < 0 or idx >= self.XX.shape[2]:
             print(f"Index {idx} out of range for acoustic prints with length {self.XX.shape[2]}")
@@ -349,13 +349,14 @@ class Analyser:
         im = ax.imshow(self.XX[:, :, idx], aspect='auto', origin='lower', extent=[0, 24, 0, 24])
         fig.tight_layout()
         safe_label = ''.join(c if (c.isalnum() or c in '._- ') else '_' for c in site_label)
-        fig.savefig(f"site_print_{safe_label}.png", dpi=150, bbox_inches='tight')
+        if save_dir is not None:
+            fig.savefig(f"{save_dir}/site_print_{safe_label}.png", dpi=150, bbox_inches='tight')
         fig.colorbar(im, ax=ax, label='Intensity (dB)')
         plt.show(block=False)
         plt.pause(0.05)
         fig.canvas.draw_idle()
 
-    def ac_print(self, df, by_days: bool = False):
+    def ac_print(self, df, by_days: bool = False, save_dir=None):
         """Build acoustic prints and matrices.
         When by_days=False, aggregates per site (original ac_print).
         When by_days=True, aggregates per (site, day) (original ac_print_by_days).
@@ -389,7 +390,7 @@ class Analyser:
                 Sd, tn, fn = self.build_acoustic_print(data_site)
                 self.XX[:, :, k] = Sd
                 self.X[k, :] = np.ravel(Sd, order='C')
-                self.plot_acoustic_print(k)
+                self.plot_acoustic_print(k,save_dir)
                 try:
                     group_label = data_site['group'].iloc[0]
                 except Exception:
@@ -410,7 +411,7 @@ class Analyser:
                     Sd, tn, fn = self.build_acoustic_print(data_day)
                     self.XX[:, :, k] = Sd
                     self.X[k, :] = np.ravel(Sd, order='C')
-                    self.plot_acoustic_print(k)
+                    self.plot_acoustic_print(k,save_dir)
 
                     try:
                         group_label = data_day['group'].iloc[0]

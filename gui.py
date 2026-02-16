@@ -1,5 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
+from pathlib import Path
+
+
+home_path = str(Path.home())
 
 class Window:
     "Class to create windows and widgets for the application"
@@ -59,10 +63,17 @@ class Window:
         return ch1, ch_rec
         
 
-    def insert_entry(self, frame, row, column, bd=5, state='disabled', text=None):
+    def insert_entry(self, frame, row, column, w=5, state='disabled', text=None, command=None):
         "Create an entry widget with optional default text"
-        label = tk.Label(frame, text=text)
-        label.grid(row=row,column=column)
-        entry = tk.Entry(frame,bd=5,state=state)
-        entry.grid(row=row,column=column+1)
+        if text and command:
+            btn=tk.Button(frame,text=text,padx=5,pady=0,fg="white",bg="#263D42", command=command)
+            btn.grid(row=row+1,column=column)
+            entry = tk.Entry(frame,bd=5,width=w,state=state)
+            entry.grid(row=row,column=column)
+        else:
+            lbl=tk.Label(frame,text=text)
+            lbl.grid(row=row,column=column)
+            entry = tk.Entry(frame,bd=5,width=w,state=state)
+            entry.grid(row=row,column=column+1)
         return entry 
+
