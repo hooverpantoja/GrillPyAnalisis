@@ -278,6 +278,75 @@ class Analyser:
         fig.set_tight_layout('tight')
         plt.show(block=False)
 
+    def ac_print(self, df, by_days: bool = False, save_dir=None):
+        """Build acoustic prints and matrices.
+        When by_days=False, aggregates per site (original ac_print).
+        When by_days=True, aggregates per (site, day) (original ac_print_by_days).
+        Populates self.X, self.XX, self.sites_ind, and self.meta_rows accordingly.
+        """
+        plt.ion()
+        group_site = df.groupby(['site'])
+        Ls = len(group_site)
+
+        group_hours= df.groupby(['hour'])
+        lh = len(group_hours)
+
+        # Prepare allocation based on mode
+        if not by_days:
+            L_treatments = Ls
+        else:
+            treatments = []
+            for site_tmp, data_site_tmp in group_site:
+                for day_tmp, _ in data_site_tmp.groupby(['day']):
+                    treatments.append((site_tmp, day_tmp))
+            L_treatments = len(treatments)
+            print("Número de combinaciones (sitio-día): " + str(L_treatments))
+
+        self.XX = np.zeros([65, lh, L_treatments])
+        self.X = np.zeros([L_treatments, 65 * lh])
+        self.sites_ind = []
+        self.meta_rows = []
+
+        k = 0
+        for site, data_site in group_site:
+            if not by_days:
+                # Per-site aggregation
+                print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
+                Sd, tn, fn = self.build_acoustic_print(data_site)
+                self.XX[:, :, k] = Sd
+                self.X[k, :] = np.ravel(Sd, order='C')
+                self.plot_acoustic_print(k,save_dir)
+                try:
+                    group_label = data_site['group'].iloc[0]
+                except Exception:
+                    group_label = site
+                self.meta_rows.append({'treatment_idx': k, 'site': site, 'group': group_label})
+                self.sites_ind.append(k)
+                #fig_site.canvas.draw_idle()
+                plt.show(block=False)
+                plt.pause(0.05)
+                k = k + 1
+                print('progress: sitio ' + str(k) + ' of ' + str(Ls))
+            else:
+                # Per (site, day) aggregation
+                group_day_site = data_site.groupby(['day'])
+                Ld = len(group_day_site)
+                for day, data_day in group_day_site:
+                    print('dia: ' + str(day) + ' # ' + ' of ' + str(Ld) + ' days')
+                    Sd, tn, fn = self.build_acoustic_print(data_day)
+                    self.XX[:, :, k] = Sd
+                    self.X[k, :] = np.ravel(Sd, order='C')
+                    self.plot_acoustic_print(k,save_dir)
+
+                    try:
+                        group_label = data_day['group'].iloc[0]
+                    except Exception:
+                        group_label = site
+                    self.meta_rows.append({'treatment_idx': k, 'site': site, 'day': day, 'group': group_label})
+                    self.sites_ind.append(k)
+                    k = k + 1
+                    print('progreso: combinación sitio-día ' + str(k) + ' de ' + str(L_treatments))
+
     def build_acoustic_print(self, data_subset):
         """Compute the acoustic print matrix (Sd) for a subset of metadata rows.
 
@@ -324,7 +393,7 @@ class Analyser:
         return Sd, tn, fn
     
     def plot_acoustic_print(self, idx, save_dir=None):
-        # Guard against out-of-bounds and missing metadata; still plot when matrices exist
+        """Plot the acoustic print for a given treatment index with metadata-derived labels when available."""
         if idx < 0 or idx >= self.XX.shape[2]:
             print(f"Index {idx} out of range for acoustic prints with length {self.XX.shape[2]}")
             return
@@ -356,71 +425,6 @@ class Analyser:
         plt.pause(0.05)
         fig.canvas.draw_idle()
 
-    def ac_print(self, df, by_days: bool = False, save_dir=None):
-        """Build acoustic prints and matrices.
-        When by_days=False, aggregates per site (original ac_print).
-        When by_days=True, aggregates per (site, day) (original ac_print_by_days).
-        Populates self.X, self.XX, self.sites_ind, and self.meta_rows accordingly.
-        """
-        plt.ion()
-        group_site = df.groupby(['site'])
-        Ls = len(group_site)
-
-        # Prepare allocation based on mode
-        if not by_days:
-            L_treatments = Ls
-        else:
-            treatments = []
-            for site_tmp, data_site_tmp in group_site:
-                for day_tmp, _ in data_site_tmp.groupby(['day']):
-                    treatments.append((site_tmp, day_tmp))
-            L_treatments = len(treatments)
-            print("Número de combinaciones (sitio-día): " + str(L_treatments))
-
-        self.XX = np.zeros([65, 48, L_treatments])
-        self.X = np.zeros([L_treatments, 65 * 48])
-        self.sites_ind = []
-        self.meta_rows = []
-
-        k = 0
-        for site, data_site in group_site:
-            if not by_days:
-                # Per-site aggregation
-                print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
-                Sd, tn, fn = self.build_acoustic_print(data_site)
-                self.XX[:, :, k] = Sd
-                self.X[k, :] = np.ravel(Sd, order='C')
-                self.plot_acoustic_print(k,save_dir)
-                try:
-                    group_label = data_site['group'].iloc[0]
-                except Exception:
-                    group_label = site
-                self.meta_rows.append({'treatment_idx': k, 'site': site, 'group': group_label})
-                self.sites_ind.append(k)
-                #fig_site.canvas.draw_idle()
-                plt.show(block=False)
-                plt.pause(0.05)
-                k = k + 1
-                print('progress: sitio ' + str(k) + ' of ' + str(Ls))
-            else:
-                # Per (site, day) aggregation
-                group_day_site = data_site.groupby(['day'])
-                Ld = len(group_day_site)
-                for day, data_day in group_day_site:
-                    print('dia: ' + str(day) + ' # ' + ' of ' + str(Ld) + ' days')
-                    Sd, tn, fn = self.build_acoustic_print(data_day)
-                    self.XX[:, :, k] = Sd
-                    self.X[k, :] = np.ravel(Sd, order='C')
-                    self.plot_acoustic_print(k,save_dir)
-
-                    try:
-                        group_label = data_day['group'].iloc[0]
-                    except Exception:
-                        group_label = site
-                    self.meta_rows.append({'treatment_idx': k, 'site': site, 'day': day, 'group': group_label})
-                    self.sites_ind.append(k)
-                    k = k + 1
-                    print('progreso: combinación sitio-día ' + str(k) + ' de ' + str(L_treatments))
     
     def calculate_nmds(self):
         dist_euclid = euclidean_distances(self.X)
