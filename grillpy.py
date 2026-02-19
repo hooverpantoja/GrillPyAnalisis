@@ -28,7 +28,7 @@ data=obj.data('wav','wavfs',pd.DataFrame(),pd.DataFrame(),[],pd.DataFrame())
 flag=obj.flag('enter','load')
 S=obj.spec('_','_','_','_')
 
-analyser = analysis.Analyser(np.zeros,np.zeros,[],[])
+analyser = analysis.Analyser()
 loader = utils.Loader()
 sampler = utils.Sampler()
 editor = utils.DataFrameEditor()
@@ -92,8 +92,10 @@ def sel_days():
         print('Días seleccionados y DataFrame actualizado')
         df.md=[]; df.md=df_new
 
-def resample(): sampler.resample_dataset(df.md)   
-
+def resample(): 
+    sampler.resample_dataset(df.md)   
+    print('Resampleo completado. Archivos guardados en la carpeta de destino.')
+    
 def show_metadata_df():
     """Show the current metadata DataFrame (df.md) in a new window."""
     try:
@@ -107,6 +109,15 @@ def assign_groups_gui():
         editor.assign_groups_gui(df.md, root_window)
     except Exception as e:
         print(f'Error al abrir el editor de grupos: {e}')
+        
+def fix_hours_by_intervals():
+    """Abrir GUI para corregir horas por intervalos y actualizar df.md."""
+    try:
+        df_new = editor.fix_hours_by_intervals_gui(df.md, root_window)
+        df.md = df_new
+        print('Horas corregidas por intervalos y DataFrame actualizado')
+    except Exception as e:
+        print(f'Error al corregir horas: {e}')
         
 ###########################################
 ### Functions #############################
@@ -164,19 +175,24 @@ def calculate_spl():
     
 def calculate_acoustic_print(): 
     print('Calculando huella acústica promedio')   
-    analyser.ac_print(df.md,save_dir=p.save)
+    _XX, _df_meta = analyser.ac_print(df.md,save_dir=p.save)
+    data.npy_matrixAcousticPrint = _XX
+    data.data_analysis = pd.DataFrame(_df_meta)
+    save_csv()
 
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
-    analyser.ac_print(df.md, by_days=True, save_dir=p.save)
+    _XX, _df_meta = analyser.ac_print(df.md, by_days=True, save_dir=p.save)
+    data.npy_matrixAcousticPrint = _XX
+    data.data_analysis = pd.DataFrame(_df_meta)
+    save_csv()
     
 
 def calculate_nmds():     
     print('Calculando NMDS de la huella acústica')
     _X, _y, _pts, _df_meta = analyser.calculate_nmds()
-    data.npy_matrixAcousticPrint = _X
-    data.data_analysis = _df_meta
+    data.data_analysis = pd.DataFrame(_df_meta)
 
 ###########################################
 ### Guardar datos #########################
@@ -285,6 +301,7 @@ root_window.insert_button(frame_btns_preprocess,1,1,"Resamplear",resample)
 root_window.insert_button(frame_btns_preprocess,2,1,"Seleccionar días",sel_days)
 root_window.insert_button(frame_btns_preprocess,3,1,"Ver metadatos",show_metadata_df)
 root_window.insert_button(frame_btns_preprocess,4,1,"Asignar grupos",assign_groups_gui)
+root_window.insert_button(frame_btns_preprocess,5,1,"Corregir hora por intervalos",fix_hours_by_intervals)
 
 frame_btns_process=root_window.insert_subframe(frame_buttons,3,1,"Procesamiento",pady=5)
 root_window.insert_button(frame_btns_process,1,1,"Espectrograma (archivo o un día)",one_day_spec)

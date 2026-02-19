@@ -21,11 +21,12 @@ from matplotlib import cm
 
 
 class Analyser:
-    def __init__(self, X, XX, sites_ind, meta_rows):
-        self.X = X
-        self.XX = XX
-        self.sites_ind = sites_ind
-        self.meta_rows = meta_rows
+    def __init__(self):
+        self.X = None
+        self.XX = None
+        self.sites_ind = None
+        self.meta_rows = None
+        self.Lh= None
 
     @classmethod
     def longwave(cls, df, path, samp_len, flims, db, ch):
@@ -274,7 +275,7 @@ class Analyser:
     @classmethod
     def plot_spl(cls, df):
         fig, _ax = plt.subplots(nrows=1, ncols=1, figsize=(10, 10))
-        sns.scatterplot(data=df, x='hour', y='spl', hue='day')
+        sns.scatterplot(data=df, x='hourfmt', y='spl', hue='day')
         fig.set_tight_layout('tight')
         plt.show(block=False)
 
@@ -288,8 +289,8 @@ class Analyser:
         group_site = df.groupby(['site'])
         Ls = len(group_site)
 
-        group_hours= df.groupby(['hour'])
-        lh = len(group_hours)
+        group_day = df.groupby(['day'])
+        #num_hours=group_day.day.value_counts().idxmax()
 
         # Prepare allocation based on mode
         if not by_days:
@@ -302,8 +303,8 @@ class Analyser:
             L_treatments = len(treatments)
             print("Número de combinaciones (sitio-día): " + str(L_treatments))
 
-        self.XX = np.zeros([65, lh, L_treatments])
-        self.X = np.zeros([L_treatments, 65 * lh])
+        self.XX = np.zeros([65, 144, L_treatments])
+        self.X = np.zeros([L_treatments, 65 * 144])
         self.sites_ind = []
         self.meta_rows = []
 
@@ -315,13 +316,14 @@ class Analyser:
                 Sd, tn, fn = self.build_acoustic_print(data_site)
                 self.XX[:, :, k] = Sd
                 self.X[k, :] = np.ravel(Sd, order='C')
-                self.plot_acoustic_print(k,save_dir)
                 try:
                     group_label = data_site['group'].iloc[0]
                 except Exception:
-                    group_label = site
-                self.meta_rows.append({'treatment_idx': k, 'site': site, 'group': group_label})
+                    group_label = site  
+                info={'treatment_idx': k, 'site': site, 'group': group_label}           
+                self.meta_rows.append(info)
                 self.sites_ind.append(k)
+                self.plot_acoustic_print(k,save_dir,label=info)
                 #fig_site.canvas.draw_idle()
                 plt.show(block=False)
                 plt.pause(0.05)
@@ -336,16 +338,17 @@ class Analyser:
                     Sd, tn, fn = self.build_acoustic_print(data_day)
                     self.XX[:, :, k] = Sd
                     self.X[k, :] = np.ravel(Sd, order='C')
-                    self.plot_acoustic_print(k,save_dir)
-
                     try:
-                        group_label = data_day['group'].iloc[0]
+                        group_label = str(data_day['group'].iloc[0])+ ' - Day ' + str(day)
                     except Exception:
-                        group_label = site
-                    self.meta_rows.append({'treatment_idx': k, 'site': site, 'day': day, 'group': group_label})
+                        group_label = str(site) + ' - Day ' + str(day)
+                    info = {'treatment_idx': k, 'site': site, 'day': day, 'group': group_label}
+                    self.meta_rows.append(info)
                     self.sites_ind.append(k)
+                    self.plot_acoustic_print(k, save_dir, label=info)
                     k = k + 1
                     print('progreso: combinación sitio-día ' + str(k) + ' de ' + str(L_treatments))
+        return self.XX, self.meta_rows
 
     def build_acoustic_print(self, data_subset):
         """Compute the acoustic print matrix (Sd) for a subset of metadata rows.
@@ -360,10 +363,10 @@ class Analyser:
             fn: 1D numpy array of frequency bins from last spectrum
         """
         group_hour = data_subset.groupby(['hour'])
-        Lh = len(group_hour)
+        self.Lh = len(group_hour)
         i = 0
-        Stt = np.zeros([513, Lh])
-        tn = np.zeros([Lh])
+        Stt = np.zeros([513, self.Lh])
+        tn = np.zeros([self.Lh])
         fn = None
         for hour, rows in group_hour:
             tn[i] = sum(hour)
@@ -375,12 +378,13 @@ class Analyser:
                 if fs != 48000:
                     s = sound.resample(s, fs, 48000, res_type='kaiser_fast')
                     fs = 48000
-                Stmp, fn = sound.spectrum(s, fs, window='hann', nperseg=1024, noverlap=512)
+                ######## Ojo con los recortes, no se si es necesario o si es mejor usar todo el audio
+                Stmp, fn = sound.spectrum(s[96000:len(s)-96000], fs, window='hann', nperseg=1024, noverlap=512)
                 St = St + Stmp
             St = St / max(L, 1)
             Stt[:, i] = St
             i = i + 1
-            print('progress: ' + str(i) + ' of ' + str(Lh) + ' hours')
+            print('progress: ' + str(i) + ' of ' + str(self.Lh) + ' hours')
         # Robust dB transform using a modal reference within the informative band
         values, counts = np.unique(Stt[128:384, :], return_counts=True)
         mc = values[counts.argmax()] if values.size > 0 else 1.0
@@ -392,24 +396,14 @@ class Analyser:
         Sd = downscale_local_mean(Sm, (8, 1))
         return Sd, tn, fn
     
-    def plot_acoustic_print(self, idx, save_dir=None):
+    def plot_acoustic_print(self, idx, save_dir=None, label=None):
         """Plot the acoustic print for a given treatment index with metadata-derived labels when available."""
-        if idx < 0 or idx >= self.XX.shape[2]:
-            print(f"Index {idx} out of range for acoustic prints with length {self.XX.shape[2]}")
-            return
 
         # Derive labels from metadata when available, otherwise use generic labels
-        if idx < len(self.meta_rows):
-            meta = self.meta_rows[idx]
-            site_label = str(meta.get('site', f'Treatment {idx}'))
-            day_label = meta.get('day')
-        else:
-            site_label = f'Treatment {idx}'
-            day_label = None
 
-        title = f"Acoustic Print - {site_label} (Treatment {idx})"
-        if day_label is not None:
-            title += f" - Day {day_label}"
+        site_label = label.get('site')
+        day_label = label.get('day')
+        title = f"Acoustic Print - {site_label} - {day_label})"
 
         fig, ax = plt.subplots()
         ax.set_title(title)
@@ -417,9 +411,9 @@ class Analyser:
         ax.set_ylabel('Frequency (kHz)')
         im = ax.imshow(self.XX[:, :, idx], aspect='auto', origin='lower', extent=[0, 24, 0, 24])
         fig.tight_layout()
-        safe_label = ''.join(c if (c.isalnum() or c in '._- ') else '_' for c in site_label)
+        #safe_label = ''.join(c if (c.isalnum() or c in '._- ') else '_' for c in site_label)
         if save_dir is not None:
-            fig.savefig(f"{save_dir}/site_print_{safe_label}.png", dpi=150, bbox_inches='tight')
+            fig.savefig(f"{save_dir}/site_print_"+str(site_label)+str(day_label)+".png", dpi=150, bbox_inches='tight')
         fig.colorbar(im, ax=ax, label='Intensity (dB)')
         plt.show(block=False)
         plt.pause(0.05)
@@ -432,7 +426,7 @@ class Analyser:
         dist_matrix = dist_euclid
         y = np.transpose(self.sites_ind)
         mds = MDS(metric=metric, dissimilarity='precomputed', random_state=0)
-        pts = mds.fit_transform(dist_matrix)
+        pts = mds.fit_transform(dist_matrix) \
 
         # Align metadata and point counts if they differ to avoid pandas length errors
         if len(self.meta_rows) != pts.shape[0]:
@@ -453,13 +447,15 @@ class Analyser:
         ax2 = fig2.add_subplot()
         plt.scatter(pts[:, 0], pts[:, 1])
         for x, ind in zip(self.X, range(pts.shape[0])):
-            im = x.reshape(65, 48)
+            im = x.reshape(65, self.Lh)
             imagebox = OffsetImage(im, zoom=0.7, cmap=cm.get_cmap('viridis'))
             i = pts[ind, 0]
             j = pts[ind, 1]
             ab = AnnotationBbox(imagebox, (i, j), frameon=False)
             ax2.add_artist(ab)
-            ax2.invert_yaxis()
+        plt.title('Metric NMDS with Euclidean distances')
+        plt.ylabel('NMDSy')
+        plt.xlabel('NMDSx')
         plt.show(block=False)
 
         fig3 = plt.figure(figsize=(10, 10))

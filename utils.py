@@ -15,6 +15,8 @@ import pandas as pd
 import seaborn as sns
 from resampy import resample
 from scipy.io import wavfile
+from datetime import time
+from maad import sound
 
 
 class Loader:
@@ -46,6 +48,7 @@ class Loader:
                 d.loc[i,'date_fmt']=pd.to_datetime(file[ind[0]+1:ind[1]]+' '+file[ind[1]+1:ind[2]], format='%Y%m%d %H%M%S')
                 d.loc[i,'day']=file[ind[0]+1:ind[1]]
                 d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
+                d.loc[i,'hourfmt']=pd.to_datetime(file[ind[1]+1:ind[2]], format='%H%M%S').time()
 
             elif recorder=='Audiomoth: aammdd_hhmmss':
                 site = ''
@@ -64,6 +67,7 @@ class Loader:
                 d.loc[i,'date_fmt']=pd.to_datetime(file[0:ind[0]]+' '+file[ind[0]+1:ind[1]], format='%Y%m%d %H%M%S')
                 d.loc[i,'day']=file[0:ind[0]]
                 d.loc[i,'hour']=d.loc[i,'date_fmt'].hour+d.loc[i,'date_fmt'].minute/60
+                d.loc[i,'hourfmt']=pd.to_datetime(file[ind[0]+1:ind[1]], format='%H%M%S').time()
 
             if fload == 'file': # Break for cycle so flist is assigned to route in the first iteration. This is only necessary for files
                 d.loc[0,'route']=flist
@@ -278,7 +282,8 @@ class DataFrameEditor:
         top.geometry('520x520')
 
         tk.Label(top, text='Seleccione la columna que identifica la grabadora:').pack(padx=10, pady=(10, 0), anchor='w')
-        cols = list(df_ref.columns)
+        # Exclude 'route' and 'file' from selectable columns
+        cols = [c for c in list(df_ref.columns) if c != 'route' and c != 'file']
         col_var = tk.StringVar(value=cols[0] if cols else '')
         col_combo = ttk.Combobox(top, textvariable=col_var, values=cols, state='readonly')
         col_combo.pack(fill='x', padx=10, pady=6)
@@ -336,7 +341,11 @@ class DataFrameEditor:
             if selected_col not in df_ref.columns:
                 print(f'La columna "{selected_col}" no existe en df_ref')
                 return
-            mapping = {r: entry.get().strip() for r, entry in mapping_entries.items()}
+            # Only save text explicitly entered by the user; blanks become NaN
+            mapping = {}
+            for r, entry in mapping_entries.items():
+                val = entry.get().strip()
+                mapping[r] = (val if val != '' else None)
             try:
                 df_ref['group'] = df_ref[selected_col].map(mapping)
                 df_ref['group'] = df_ref['group'].fillna('Sin grupo')
@@ -348,6 +357,102 @@ class DataFrameEditor:
 
         tk.Button(btns, text='Guardar', command=on_save).pack(side='left')
         tk.Button(btns, text='Cancelar', command=top.destroy).pack(side='left', padx=8)
+    
+    @classmethod
+    def fix_hours_by_intervals_gui(cls, df_ref: pd.DataFrame, root_window=None) -> pd.DataFrame:
+        """GUI to snap 'hour' values to user-defined intervals within each hour.
+
+        - Asks for the number of recordings per hour (N)
+        - Rounds `hour` to the nearest multiple of 1/N (e.g., N=10 -> 0.1 hour = 6 min)
+        - Updates `hour` in-place and also refreshes `hourfmt` to match the snapped time
+        - Filters out days whose total recordings are not exactly N*24
+        - Returns the updated and filtered DataFrame (or the original if cancelled/invalid)
+        """
+        if not isinstance(df_ref, pd.DataFrame) or df_ref.empty or 'hour' not in df_ref.columns:
+            print('No hay metadatos cargados o falta la columna "hour"')
+            return df_ref if isinstance(df_ref, pd.DataFrame) else pd.DataFrame()
+
+        parent = root_window.window if root_window and hasattr(root_window, 'window') else None
+        top = tk.Toplevel(parent)
+        top.title('Corregir hora por intervalos')
+        top.geometry('420x180')
+
+        tk.Label(top, text='Grabaciones por hora (N):').pack(padx=10, pady=(12, 4), anchor='w')
+        n_var = tk.StringVar(value='10')
+        n_entry = tk.Entry(top, textvariable=n_var)
+        n_entry.pack(fill='x', padx=10, pady=(0, 12))
+
+        result = {'df': df_ref}
+
+        def _snap_hours(df: pd.DataFrame, n: int) -> pd.DataFrame:
+            if n <= 0:
+                raise ValueError('N debe ser un entero positivo')
+            # Snap hour to nearest multiple of 1/n
+            snapped = (df['hour'] * n).round() / n
+            df['hour'] = snapped
+
+            # Update hourfmt to match snapped time
+            def _to_time(h: float) -> time:
+                hr = int(np.floor(h))
+                mins = int(round((h - hr) * 60))
+                # Handle 60-minute rounding overflow
+                if mins == 60:
+                    hr = (hr + 1) % 24
+                    mins = 0
+                return time(hr, mins, 0)
+
+            try:
+                df['hourfmt'] = df['hour'].apply(_to_time)
+            except Exception:
+                # If hourfmt doesn't exist or fails, ignore silently
+                pass
+
+            # Filter days with exactly N*24 recordings per site (if available)
+            expected_per_day = n * 24
+            if 'day' in df.columns:
+                if 'site' in df.columns:
+                    counts_by_site_day = df.groupby(['site', 'day']).size()
+                    valid_site_days = counts_by_site_day[counts_by_site_day == expected_per_day].index
+                    df = df[df.set_index(['site', 'day']).index.isin(valid_site_days)]
+                    print(f"Días válidos con {expected_per_day} grabaciones por sitio: {len(valid_site_days)} pares sitio-día")
+                else:
+                    counts_by_day = df.groupby('day').size()
+                    valid_days = counts_by_day[counts_by_day == expected_per_day].index
+                    df = df[df['day'].isin(valid_days)]
+                    print(f"Días válidos con {expected_per_day} grabaciones: {len(valid_days)}")
+            else:
+                print('Advertencia: no se encontró la columna "day" para filtrar por días')
+            return df
+
+        def on_save():
+            raw = n_var.get().strip()
+            try:
+                n = int(raw)
+                if n <= 0:
+                    raise ValueError
+            except Exception:
+                print('Ingrese un número entero positivo para N')
+                return
+            try:
+                df_out = _snap_hours(df_ref, n)
+            except Exception as e:
+                print(f'Error al corregir horas: {e}')
+                df_out = df_ref
+            result['df'] = df_out
+            print(f'Horas corregidas usando N={n} segmentos por hora')
+            top.destroy()
+
+        def on_cancel():
+            top.destroy()
+
+        btns = tk.Frame(top)
+        btns.pack(fill='x', padx=10, pady=(0, 10))
+        tk.Button(btns, text='Guardar', command=on_save).pack(side='left')
+        tk.Button(btns, text='Cancelar', command=on_cancel).pack(side='left', padx=8)
+
+        top.wait_window()
+        Loader.plot_set_recorders(result['df'])
+        return result['df']
     
 class Sampler:
     """Class for resampling audio files in the dataset."""
@@ -378,6 +483,8 @@ class Sampler:
                 else:
                     s_res = s
 
+                s_res = sound.select_bandwidth(x=s_res, fs=ftarget, fcut=1000, forder=4,fname='butter', ftype='highpass') 
+        
                 try:
                     # Create the directory
                     os.mkdir(save_path)
