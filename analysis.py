@@ -18,6 +18,7 @@ from sklearn.manifold import MDS
 from sklearn.metrics.pairwise import euclidean_distances 
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 from matplotlib import cm
+from scipy.signal import spectrogram
 
 
 class Analyser:
@@ -40,7 +41,7 @@ class Analyser:
                 fs = flims[1] * 2 + 4000
             long_wav.append(s)
             print('progress: ' + str(idx + 1) + ' of ' + L)
-        long_wav = util.crossfade_list(long_wav, fs, fade_len=0.5)
+        #long_wav = util.crossfade_list(long_wav, fs, fade_len=0.5)
         Sxx, tn, fn, _ = sound.spectrogram(
             long_wav, fs, window='hann', nperseg=1024, noverlap=512, flims=flims)
         Sxx_db = 20 * np.log10(Sxx / Sxx.min())
