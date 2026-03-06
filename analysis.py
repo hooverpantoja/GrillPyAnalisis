@@ -290,6 +290,8 @@ class Analyser:
         Ls = len(group_site)
 
         group_day = df.groupby(['day'])
+        group_hour = df.groupby(['hour'])
+        self.Lh = len(group_hour)
         #num_hours=group_day.day.value_counts().idxmax()
 
         # Prepare allocation based on mode
@@ -303,8 +305,8 @@ class Analyser:
             L_treatments = len(treatments)
             print("Número de combinaciones (sitio-día): " + str(L_treatments))
 
-        self.XX = np.zeros([65, 144, L_treatments])
-        self.X = np.zeros([L_treatments, 65 * 144])
+        self.XX = np.zeros([65, self.Lh, L_treatments])
+        self.X = np.zeros([L_treatments, 65 * self.Lh])
         self.sites_ind = []
         self.meta_rows = []
 
