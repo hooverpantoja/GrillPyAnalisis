@@ -6,6 +6,8 @@ Created on Wed Apr 26 12:50:30 2023
 """
 
 import numpy as np
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from matplotlib import cm
 import pandas as pd
 import seaborn as sns
 from maad import sound, util, rois, features, spl
@@ -16,8 +18,8 @@ except ImportError:
     from skimage.measure import block_reduce as downscale_local_mean
 from sklearn.manifold import MDS
 from sklearn.metrics.pairwise import euclidean_distances 
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-from matplotlib import cm
+from scipy.signal import find_peaks
+
 
 
 class Analyser:
@@ -288,10 +290,9 @@ class Analyser:
         plt.ion()
         group_site = df.groupby(['site'])
         Ls = len(group_site)
-
-        group_day = df.groupby(['day'])
         group_hour = df.groupby(['hour'])
         self.Lh = len(group_hour)
+        print('Número de archivos por día a procesar: ' + str(self.Lh))
         #num_hours=group_day.day.value_counts().idxmax()
 
         # Prepare allocation based on mode
@@ -309,22 +310,24 @@ class Analyser:
         self.X = np.zeros([L_treatments, 65 * self.Lh])
         self.sites_ind = []
         self.meta_rows = []
+        self.n_peaks_per_col = []  # Initialize list to store number of peaks per column for all treatments
 
         k = 0
         for site, data_site in group_site:
             if not by_days:
                 # Per-site aggregation
                 print('site: ' + str(site) + ' # ' + str(k + 1) + ' of ' + str(Ls) + ' sites')
-                Sd, tn, fn = self.build_acoustic_print(data_site)
-                self.XX[:, :, k] = Sd
-                self.X[k, :] = np.ravel(Sd, order='C')
                 try:
                     group_label = data_site['group'].iloc[0]
                 except Exception:
                     group_label = site  
+                Sd, tn, fn, n_peaks_per_col = self.build_acoustic_print(data_site,k,site,group_label)
+                self.XX[:, :, k] = Sd
+                self.X[k, :] = np.ravel(Sd, order='C')  
                 info={'treatment_idx': k, 'site': site, 'group': group_label}           
                 self.meta_rows.append(info)
                 self.sites_ind.append(k)
+                self.n_peaks_per_col.append(n_peaks_per_col)
                 self.plot_acoustic_print(k,save_dir,label=info)
                 #fig_site.canvas.draw_idle()
                 plt.show(block=False)
@@ -337,22 +340,23 @@ class Analyser:
                 Ld = len(group_day_site)
                 for day, data_day in group_day_site:
                     print('dia: ' + str(day) + ' # ' + ' of ' + str(Ld) + ' days')
-                    Sd, tn, fn = self.build_acoustic_print(data_day)
-                    self.XX[:, :, k] = Sd
-                    self.X[k, :] = np.ravel(Sd, order='C')
                     try:
                         group_label = str(data_day['group'].iloc[0])+ ' - Day ' + str(day)
                     except Exception:
                         group_label = str(site) + ' - Day ' + str(day)
+                    Sd, tn, fn, n_peaks_per_col = self.build_acoustic_print(data_day,k,site,group_label)
+                    self.XX[:, :, k] = Sd
+                    self.X[k, :] = np.ravel(Sd, order='C')
                     info = {'treatment_idx': k, 'site': site, 'day': day, 'group': group_label}
                     self.meta_rows.append(info)
                     self.sites_ind.append(k)
+                    self.n_peaks_per_col.append(n_peaks_per_col)
                     self.plot_acoustic_print(k, save_dir, label=info)
                     k = k + 1
                     print('progreso: combinación sitio-día ' + str(k) + ' de ' + str(L_treatments))
-        return self.XX, self.meta_rows
+        return self.XX, self.meta_rows,self.n_peaks_per_col
 
-    def build_acoustic_print(self, data_subset):
+    def build_acoustic_print(self, data_subset, ind, site, group_label):
         """Compute the acoustic print matrix (Sd) for a subset of metadata rows.
 
         The subset is expected to belong to a single site (and optionally a single day).
@@ -383,10 +387,11 @@ class Analyser:
                 ######## Ojo con los recortes, no se si es necesario o si es mejor usar todo el audio
                 Stmp, fn = sound.spectrum(s[96000:len(s)-96000], fs, window='hann', nperseg=1024, noverlap=512)
                 St = St + Stmp
-            St = St / max(L, 1)
+                info = {'treatment_idx': ind, 'site': site, 'group': group_label, 'hour': hour}
+                self.meta_rows.append(info)
             Stt[:, i] = St
             i = i + 1
-            print('progress: ' + str(i) + ' of ' + str(self.Lh) + ' hours')
+            print('progreso: ' + str(i) + ' de ' + str(self.Lh) + ' grabaciones a analizar')
         # Robust dB transform using a modal reference within the informative band
         values, counts = np.unique(Stt[128:384, :], return_counts=True)
         mc = values[counts.argmax()] if values.size > 0 else 1.0
@@ -396,7 +401,13 @@ class Analyser:
         mask = Stt_db > 0
         Sm = Stt_db * mask
         Sd = downscale_local_mean(Sm, (8, 1))
-        return Sd, tn, fn
+        n_peaks_per_col = []    # count per column      
+        for j in range(Sd.shape[1]):
+            col = Sd[:, j]
+            peaks_idx, props = find_peaks(col, prominence=0.5)  # tune params
+            #peaks_per_col.append(peaks_idx)                     # variable length OK
+            n_peaks_per_col.append(len(peaks_idx))
+        return Sd, tn, fn, n_peaks_per_col
     
     def plot_acoustic_print(self, idx, save_dir=None, label=None):
         """Plot the acoustic print for a given treatment index with metadata-derived labels when available."""

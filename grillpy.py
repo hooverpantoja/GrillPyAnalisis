@@ -175,17 +175,20 @@ def calculate_spl():
     
 def calculate_acoustic_print(): 
     print('Calculando huella acústica promedio')   
-    _XX, _df_meta = analyser.ac_print(df.md,save_dir=p.save)
+    _XX, _df_meta,_number_of_peaks = analyser.ac_print(df.md,save_dir=p.save)
     data.npy_matrixAcousticPrint = _XX
     data.data_analysis = pd.DataFrame(_df_meta)
+    data.data_analysis['number_of_peaks'] = _number_of_peaks
+    print(_number_of_peaks)
     save_csv()
 
 
 def calculate_acoustic_print_by_days():
     print('Calculando huella acústica por días')
-    _XX, _df_meta = analyser.ac_print(df.md, by_days=True, save_dir=p.save)
+    _XX, _df_meta,_number_of_peaks = analyser.ac_print(df.md, by_days=True, save_dir=p.save)
     data.npy_matrixAcousticPrint = _XX
     data.data_analysis = pd.DataFrame(_df_meta)
+    data.data_analysis['number_of_peaks'] = _number_of_peaks
     save_csv()
     
 
