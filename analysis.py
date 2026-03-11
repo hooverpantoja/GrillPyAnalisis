@@ -324,7 +324,7 @@ class Analyser:
                 Sd, tn, fn, n_peaks_per_col = self.build_acoustic_print(data_site,k,site,group_label)
                 self.XX[:, :, k] = Sd
                 self.X[k, :] = np.ravel(Sd, order='C')  
-                info={'treatment_idx': k, 'site': site, 'group': group_label}           
+                info={'treatment_idx': k, 'site': site, 'group': group_label, 'n_peaks_per_col': n_peaks_per_col}           
                 self.meta_rows.append(info)
                 self.sites_ind.append(k)
                 self.n_peaks_per_col.append(n_peaks_per_col)
@@ -347,7 +347,7 @@ class Analyser:
                     Sd, tn, fn, n_peaks_per_col = self.build_acoustic_print(data_day,k,site,group_label)
                     self.XX[:, :, k] = Sd
                     self.X[k, :] = np.ravel(Sd, order='C')
-                    info = {'treatment_idx': k, 'site': site, 'day': day, 'group': group_label}
+                    info = {'treatment_idx': k, 'site': site, 'day': day, 'group': group_label, 'n_peaks_per_col': n_peaks_per_col}
                     self.meta_rows.append(info)
                     self.sites_ind.append(k)
                     self.n_peaks_per_col.append(n_peaks_per_col)
