@@ -321,10 +321,10 @@ class Analyser:
                     group_label = data_site['group'].iloc[0]
                 except Exception:
                     group_label = site  
-                Sd, tn, fn, n_peaks_per_col = self.build_acoustic_print(data_site,k,site,group_label)
+                Sd, tn, fn, n_peaks_per_col, frec_peaks = self.build_acoustic_print(data_site,k,site,group_label)
                 self.XX[:, :, k] = Sd
                 self.X[k, :] = np.ravel(Sd, order='C')  
-                info={'treatment_idx': k, 'site': site, 'group': group_label, 'n_peaks_per_col': n_peaks_per_col}           
+                info={'treatment_idx': k, 'site': site, 'group': group_label, 'n_peaks_per_col': n_peaks_per_col, 'frec_peaks': frec_peaks}           
                 self.meta_rows.append(info)
                 self.sites_ind.append(k)
                 self.n_peaks_per_col.append(n_peaks_per_col)
@@ -344,10 +344,10 @@ class Analyser:
                         group_label = str(data_day['group'].iloc[0])+ ' - Day ' + str(day)
                     except Exception:
                         group_label = str(site) + ' - Day ' + str(day)
-                    Sd, tn, fn, n_peaks_per_col = self.build_acoustic_print(data_day,k,site,group_label)
+                    Sd, tn, fn, n_peaks_per_col, frec_peaks = self.build_acoustic_print(data_day,k,site,group_label)
                     self.XX[:, :, k] = Sd
                     self.X[k, :] = np.ravel(Sd, order='C')
-                    info = {'treatment_idx': k, 'site': site, 'day': day, 'group': group_label, 'n_peaks_per_col': n_peaks_per_col}
+                    info = {'treatment_idx': k, 'site': site, 'day': day, 'group': group_label, 'n_peaks_per_col': n_peaks_per_col, 'frec_peaks': frec_peaks}
                     self.meta_rows.append(info)
                     self.sites_ind.append(k)
                     self.n_peaks_per_col.append(n_peaks_per_col)
@@ -401,13 +401,15 @@ class Analyser:
         mask = Stt_db > 0
         Sm = Stt_db * mask
         Sd = downscale_local_mean(Sm, (8, 1))
-        n_peaks_per_col = []    # count per column      
+        fnd = downscale_local_mean(fn, (8,)) if fn is not None else None
+        n_peaks_per_col = []    # count per column
+        frec_peaks = []         # peak frequencies per column
         for j in range(Sd.shape[1]):
             col = Sd[:, j]
             peaks_idx, props = find_peaks(col, prominence=0.5)  # tune params
-            #peaks_per_col.append(peaks_idx)                     # variable length OK
             n_peaks_per_col.append(len(peaks_idx))
-        return Sd, tn, fn, n_peaks_per_col
+            frec_peaks.append(fnd[peaks_idx].tolist() if fnd is not None else [])
+        return Sd, tn, fn, n_peaks_per_col, frec_peaks
     
     def plot_acoustic_print(self, idx, save_dir=None, label=None):
         """Plot the acoustic print for a given treatment index with metadata-derived labels when available."""
