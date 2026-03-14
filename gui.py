@@ -3,7 +3,7 @@ from tkinter import ttk
 from pathlib import Path
 
 
-home_path = str(Path.home())
+home_path = str(Path.home() / 'Desktop')
 
 class Window:
     "Class to create windows and widgets for the application"
